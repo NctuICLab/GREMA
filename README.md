@@ -5,7 +5,11 @@ An EMA-based method, GREMA, infers a novel type of gene regulatory network with 
 Setup and Data Format
 ============================
 There are 2 input tsv files: time-series data and domain knowledge data.
-The format of time-series data has 2 parts:
+1. The format of time-series data has 2 parts:(input)
  - repeat_number= (ex:repeat_number=3)
- - time-series profile (rep1 <tab> gene_name <tab> gene_expression)
+ - time-series profile (rep1 \<tab\> gene_name \<tab\> gene_expression)
+2. The format of domain knowledge data:
+ - TF
+ - GENE
+ - REGULATORY
   
