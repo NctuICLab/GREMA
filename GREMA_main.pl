@@ -444,13 +444,19 @@ sub main {
 	}
 	run_EMA($iteration, "final",$final_knowledge,$config,$total_gene,\@fix);
 	
-	my $command = "mv calprofile* ".$output_dir;
+	my $tmp_dir = $output_dir."/tmp";
+	if(!-d $tmp_dir){
+		my $command = "mkdir ".$tmp_dir;
+		print STDERR "create tmp folder\n";
+		`$command`;
+	}
+	my $command = "mv calprofile* ".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
-	$command = "mv progress* ".$output_dir;
+	$command = "mv progress* ".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
-	$command = "mv printdata.txt ".$output_dir;
+	$command = "mv printdata.txt ".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
 }
