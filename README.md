@@ -20,7 +20,7 @@ There are 2 input tsv files: time-series data and domain knowledge data.
         -i      [FILE]  time-series profile
         -o      [PATH]  Directory of path
         -k      [FILE]  knowledge of regulatory
-        -m      [model type] {s-system,HFODE}
+        -m      [model] {s-system,HFODE}
         -t      [No]    Number of threads
         -h      Show the usage
  ```
