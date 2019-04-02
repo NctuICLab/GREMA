@@ -21,12 +21,12 @@ my $total_point = 0;
 my %confidence_level;
 
 sub Usage {
-	print STDERR "Usage: perl $program [Option]
-Option:
+	print STDERR "Usage: perl $program [Options]
+Options:
 	-i	[FILE]	time-series profile
 	-o	[PATH]	Directory of path
 	-k	[FILE]	knowledge of regulatory
-	-m	[model type] {s-system,HFODE}
+	-m	[model] {s-system,HFODE}
 	-t	[No]	Number of threads
 	-h	Show the usage
 	";
