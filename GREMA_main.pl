@@ -24,7 +24,7 @@ sub Usage {
 	print STDERR "Usage: perl $program [Options]
 Options:
 	-i	[FILE]	time-series profile
-	-o	[PATH]	Directory of path
+	-o	[PATH]	Output Directory
 	-k	[FILE]	knowledge of regulatory
 	-m	[model] {s-system,HFODE}
 	-t	[No]	Number of threads
