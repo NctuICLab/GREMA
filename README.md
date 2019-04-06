@@ -18,7 +18,7 @@ There are 2 input tsv files: time-series data and domain knowledge data.
  Usage: GREMA_main.pl [Options]
  Options:
         -i      [FILE]  time-series profile
-        -o      [PATH]  Directory of path
+        -o      [PATH]  Output Directory
         -k      [FILE]  knowledge of regulatory
         -m      [model] {s-system,HFODE}
         -t      [No]    Number of threads
