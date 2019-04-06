@@ -9,16 +9,14 @@ my $expression;
 my $knowledge;
 my $threads;
 my $model;
+my $output_dir;
 my $help;
 my $program = abs_path($0);
 #======================
-my %profile;
-my @all_gene;
 my %gene_index;
-my $output_dir;
-my $total_rep = 0;
-my $total_point = 0;
-my %confidence_level;
+
+#my $total_point = 0;
+#my %confidence_level;
 
 sub Usage {
 	print STDERR "Usage: perl $program [Options]
@@ -35,6 +33,9 @@ sub read_expression {
 	my ($profile) = @_;
 	my ($line,@ele);
 	my $profile_tag = 0;
+	my $total_rep = 0;
+	my $total_point = 0;
+	my %profile_expression;
 	open PROFILE,"<",$profile;
 	while($line=<PROFILE>){
 		chomp $line;
@@ -58,19 +59,18 @@ sub read_expression {
 				$profile_info .= $ele[$i]."\t";
 			}
 			$profile_info =~ s/\t$//;#remove the last tab
-			$profile{$rep_no}{$gene_name} = $profile_info;
+			$profile_expression{$rep_no}{$gene_name} = $profile_info;
 		}
 	}
 	close PROFILE;
-	@all_gene = (sort (keys $profile{1}));#get the gene name
+	my @all_gene = (sort (keys $profile_expression{1}));#get the gene name
 	my $gene_no = 0;
 	foreach my $i (@all_gene){
 		print STDERR $i."\n";
 		$gene_index{$gene_no} = $i;
 		$gene_no++;
-
 	}
-	return $gene_no;
+	return ($gene_no,$total_rep,$total_point,%profile_expression);
 }
 
 sub read_knowledge {
@@ -115,7 +115,7 @@ sub read_knowledge {
 	close INIT;
 }
 sub generate_config {
-	my ($configure,$total_gene_no) = @_;
+	my ($configure,$total_gene_no,$total_rep,$total_point,%profile_expression) = @_;
 	open CONF,">",$configure;
 	print CONF "num_var ".$total_gene_no."\n";
 	print CONF "num_tf ".$total_gene_no."\n";
@@ -138,177 +138,185 @@ sub generate_config {
 		print CONF $i."\n";
 		for(my $j=0;$j<$total_gene_no;$j++){
 			my $gene_name = $gene_index{$j};
-			print CONF $profile{$i}{$gene_name}."\n";
+			print CONF $profile_expression{$i}{$gene_name}."\n";
 		}
 		#print CONF "\n";
 	}
 
 	close CONF;
 }
+sub run_quantification {
+	my ($gen,$use_know,$use_config,$total_gene_no,%confidence_level) = @_;
+	print STDERR "GRN quantification\n";
+	my $n_start;
+	my $n_end;
+	my @threads;
+	my $thr_count = 0;
+	my $gene_name;
+	if($model eq "HFODE"){
+		$n_start = 2;
+		$n_end = 2+$total_gene_no;
+	}
+	my $final_results = $output_dir."/final_results.txt";
+	open FINAL,">",$final_results;
+	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
+	print STDERR "final optimized\n";
+	for(my $i=0; $i<$total_gene_no; $i++){
+		$threads[$thr_count] = threads->new(\&run_iga, $i,$gen,$use_know,$use_config);
+		sleep(1) while(scalar threads->list(threads::running) >= $threads);
+		$thr_count++;
+	}
+	foreach my $i (@threads){
+		$i->join();
+	}
+	for(my $i=0; $i<$total_gene_no; $i++){
+		$gene_name = $gene_index{$i};
+		my $iga_results = $output_dir."/".$gene_name.".txt";
+		if(!-e $iga_results){
+			print STDERR $gene_name."'s iga result does not exist\n";die;
+		}
+		my @select_iga_results = select_results(1,$iga_results);#select top 1
+		print STDERR "Gene:".$gene_name." ".$select_iga_results[0]."\n";
+		my @iga = split(/\t/,$select_iga_results[0]);
+		for(my $r=$n_start; $r<$n_end; $r++){
+			my $tf_no = $r-2;
+			my $tf_name = $gene_index{$tf_no};
+			my $role;
+			if($iga[$r]>0){
+				$role = "+";
+			}elsif($iga[$r]<0){
+				$role = "-";
+			}else{
+				$role = 0;
+			}
+			my $relationship = $tf_name."_".$gene_name;
+			print FINAL $tf_name."\t".$gene_name."\t".$role."\t".$confidence_level{$relationship}."\n";
+		}
+	}
+	close FINAL;
+}
 sub run_EMA {
-	my ($iter,$type,$use_know,$use_config,$total_gene_no,$fix_ref) = @_;
+	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level) = @_;
 	my @fix_value = @{$fix_ref};
 	my @threads;
 	my $thr_count = 0;
 	my $gene_name;
-	if($type eq "final"){
-		my $n_start = 2;
-		my $n_end = 2+$total_gene_no;
-		my $final_results = $output_dir."/final_results.txt";
-		open FINAL,">",$final_results;
-		print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
-		print STDERR "final optimized\n";
-		for(my $i=0; $i<$total_gene_no; $i++){
-			$threads[$thr_count] = threads->new(\&run_iga, $i,$iter,$use_know,$use_config);
+	my $select_top_no = 5;
+	my $cutoff = 0.8;
+	my $next_generation = $gen + 1;
+	my $new_knowledge = $knowledge."_knowledge_ForStep".$next_generation;
+	open KNOW,">",$new_knowledge;
+	print STDERR "step2:GRN decomposition\n";
+	print STDERR "step3:Parallel solving\n";
+	for(my $i=0; $i<$total_gene_no; $i++){
+		if($fix_value[$i]){
+			$gene_name = $gene_index{$i};
+			print STDERR $gene_name ."is finished\n";
+		}else{
+			$threads[$thr_count] = threads->new(\&run_iga, $i,$gen,$use_know,$use_config);
 			sleep(1) while(scalar threads->list(threads::running) >= $threads);
 			$thr_count++;
 		}
-		foreach my $i (@threads){
-			$i->join();
+	}
+	foreach my $i (@threads){
+		$i->join();
+	}
+	for(my $i=0; $i<$total_gene_no; $i++){
+		$gene_name = $gene_index{$i};
+		my (@regulatory_p,@regulatory_n,@regulatory_z);
+		my $iga_results = $output_dir."/".$gene_name.".txt";
+		if(!-e $iga_results){
+			print STDERR $gene_name."'s iga result does not exist\n";die;
 		}
-		for(my $i=0; $i<$total_gene_no; $i++){
-			$gene_name = $gene_index{$i};
-			my $iga_results = $output_dir."/".$gene_name.".txt";
-			if(!-e $iga_results){
-				print STDERR $gene_name."'s iga result does not exist\n";die;
-			}
-			my @select_iga_results = select_results(1,$iga_results);#select top 1
-			print STDERR "Gene:".$gene_name." ".$select_iga_results[0]."\n";
-			my @iga = split(/\t/,$select_iga_results[0]);
-			for(my $r=$n_start; $r<$n_end; $r++){
-				my $tf_no = $r-2;
-				my $tf_name = $gene_index{$tf_no};
-				my $role;
-				if($iga[$r]>0){
-					$role = "+";
-				}elsif($iga[$r]<0){
-					$role = "-";
-				}else{
-					$role = 0;
-				}
-				my $relationship = $tf_name."_".$gene_name;
-				print FINAL $tf_name."\t".$gene_name."\t".$role."\t".$confidence_level{$relationship}."\n";
-			}
+		my @select_iga_results = select_results($select_top_no,$iga_results);#select top 5
+		for(my $j=0; $j<$total_gene_no; $j++){
+			$regulatory_p[$j] = 0;
+			$regulatory_n[$j] = 0;
+			$regulatory_z[$j] = 0;
 		}
-		close FINAL;
-	}else{
-		my $select_top_no = 5;
-		my $cutoff = 0.8;
-		my $next_iter = $iter + 1;
-		my $new_knowledge = $knowledge."_knowledge_ForStep".$next_iter;
-		open KNOW,">",$new_knowledge;
-		print STDERR "step2:GRN decomposition\n";
-		for(my $i=0; $i<$total_gene_no; $i++){
-			if($fix_value[$i]){
-				$gene_name = $gene_index{$i};
-				print STDERR $gene_name ."is finished\n";
-			}else{
-				print STDERR "step3:Parallel solving\n";
-				$threads[$thr_count] = threads->new(\&run_iga, $i,$iter,$use_know,$use_config);
-				sleep(1) while(scalar threads->list(threads::running) >= $threads);
-				$thr_count++;
-			}
-		}
-		foreach my $i (@threads){
-			$i->join();
-		}
-		for(my $i=0; $i<$total_gene_no; $i++){
-			$gene_name = $gene_index{$i};
-			my (@regulatory_p,@regulatory_n,@regulatory_z);
-			my $iga_results = $output_dir."/".$gene_name.".txt";
-			if(!-e $iga_results){
-				print STDERR $gene_name."'s iga result does not exist\n";die;
-			}
-			my @select_iga_results = select_results($select_top_no,$iga_results);#select top 5
-			for(my $j=0; $j<$total_gene_no; $j++){
-				$regulatory_p[$j] = 0;
-				$regulatory_n[$j] = 0;
-				$regulatory_z[$j] = 0;
-			}
-			if($model eq "HFODE"){
-				#b(i),TransMax(i),n(i,j),k(i,j),deg(i)
-				my $n_start = 2;
-				my $n_end = 2+$total_gene_no;
-				for(my $j=0; $j<$select_top_no; $j++){
-					my @iga = split(/\t/,$select_iga_results[$j]);
-					for(my $r=$n_start; $r<$n_end; $r++){
-						my $gene_no = $r-2;
-						if($iga[$r] > 0){
-							$regulatory_p[$gene_no]++;
-						}elsif($iga[$r] < 0){
-							$regulatory_n[$gene_no]++;
-						}else{
-							$regulatory_z[$gene_no]++;
-						}
+		if($model eq "HFODE"){
+			#b(i),TransMax(i),n(i,j),k(i,j),deg(i)
+			my $n_start = 2;
+			my $n_end = 2+$total_gene_no;
+			for(my $j=0; $j<$select_top_no; $j++){
+				my @iga = split(/\t/,$select_iga_results[$j]);
+				for(my $r=$n_start; $r<$n_end; $r++){
+					my $gene_no = $r-2;
+					if($iga[$r] > 0){
+						$regulatory_p[$gene_no]++;
+					}elsif($iga[$r] < 0){
+						$regulatory_n[$gene_no]++;
+					}else{
+						$regulatory_z[$gene_no]++;
 					}
 				}
-			}else{
-				#S-system
-				my $n_start = 1;
-				my $n_end = 1+$total_gene_no;
-				for(my $j=0; $j<$select_top_no; $j++){
-					my @iga = split(/\t/,$select_iga_results[$j]);
-					for(my $r=$n_start; $r<$n_end; $r++){
-						my $gene_no = $r-1;
-						if($iga[$r] > 0){
-							$regulatory_p[$gene_no]++;
-						}elsif($iga[$r] < 0){
-							$regulatory_n[$gene_no]++;
-						}else{
-							$regulatory_z[$gene_no]++;
-						}
-					}
-				}
-			}#S-system model
-			my $know_info;
-			print STDERR "step4:Regulation determination\n";
-			for(my $j=0; $j<$total_gene_no; $j++){
-				my $tf_name = $gene_index{$j};
-				my $each_gene_knowledge;
-				my $relationship = $tf_name."_".$gene_name;
-				if($regulatory_p[$j]){
-					if(($regulatory_p[$j]/$select_top_no) >= $cutoff){
-						$each_gene_knowledge = "+ ";
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$iter);
-						}
-					}
-				}
-				if($regulatory_n[$j]){
-					if(($regulatory_n[$j]/$select_top_no) >= $cutoff){
-						$each_gene_knowledge = "- ";
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$iter);
-						}
-					}
-				}
-				if($regulatory_z[$j]){
-					if(($regulatory_z[$j]/$select_top_no) >= $cutoff){
-						$each_gene_knowledge = "0 ";
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$iter);
-						}
-					}
-				}
-				if(!$each_gene_knowledge){
-					$each_gene_knowledge = "? ";
-				}
-				print STDERR "role:".$each_gene_knowledge."\n";
-				print STDERR "TF:".$tf_name."\n";
-				print STDERR "P:".$regulatory_p[$j]."\n";
-				print STDERR "N:".$regulatory_n[$j]."\n";
-				print STDERR "Z:".$regulatory_z[$j]."\n";
-				print STDERR "=============================\n";
-				$know_info .= $each_gene_knowledge;
 			}
-			$know_info =~ s/ $/\n/;
-			print KNOW $know_info;	
+		}else{
+			#S-system
+			my $n_start = 1;
+			my $n_end = 1+$total_gene_no;
+			for(my $j=0; $j<$select_top_no; $j++){
+				my @iga = split(/\t/,$select_iga_results[$j]);
+				for(my $r=$n_start; $r<$n_end; $r++){
+					my $gene_no = $r-1;
+					if($iga[$r] > 0){
+						$regulatory_p[$gene_no]++;
+					}elsif($iga[$r] < 0){
+						$regulatory_n[$gene_no]++;
+					}else{
+						$regulatory_z[$gene_no]++;
+					}
+				}
+			}
+		}#S-system model
+		my $know_info;
+		print STDERR "step4:Regulation determination\n";
+		for(my $j=0; $j<$total_gene_no; $j++){
+			my $tf_name = $gene_index{$j};
+			my $each_gene_knowledge;
+			my $relationship = $tf_name."_".$gene_name;
+			if($regulatory_p[$j]){
+				if(($regulatory_p[$j]/$select_top_no) >= $cutoff){
+					$each_gene_knowledge = "+ ";
+					if(!$confidence_level{$relationship}){
+						$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
+					}
+				}
+			}
+			if($regulatory_n[$j]){
+				if(($regulatory_n[$j]/$select_top_no) >= $cutoff){
+					$each_gene_knowledge = "- ";
+					if(!$confidence_level{$relationship}){
+						$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
+					}
+				}
+			}
+			if($regulatory_z[$j]){
+				if(($regulatory_z[$j]/$select_top_no) >= $cutoff){
+					$each_gene_knowledge = "0 ";
+					if(!$confidence_level{$relationship}){
+						$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
+					}
+				}
+			}
+			if(!$each_gene_knowledge){
+				$each_gene_knowledge = "? ";
+			}
+			print STDERR "role:".$each_gene_knowledge."\n";
+			print STDERR "TF:".$tf_name."\n";
+			print STDERR "P:".$regulatory_p[$j]."\n";
+			print STDERR "N:".$regulatory_n[$j]."\n";
+			print STDERR "Z:".$regulatory_z[$j]."\n";
+			print STDERR "=============================\n";
+			$know_info .= $each_gene_knowledge;
 		}
-	}#end else
-	
+		$know_info =~ s/ $/\n/;
+		print KNOW $know_info;	
+	}
+	return %confidence_level;
 }
 sub run_iga {
-	my ($gene_no,$iter,$know,$conf) = @_;
+	my ($gene_no,$gen,$know,$conf) = @_;
 	my $src_dir = dirname($program);
 	if($model eq "HFODE"){
 		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE";
@@ -319,7 +327,7 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 100 -I ".$iter." -F 1 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 10 -I ".$gen." -F 2 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
 		print STDERR $command."\n";
 		`$command`;
 	}
@@ -382,7 +390,7 @@ sub check_knowledge {
 	}
 }
 sub main {
-	my $total_gene = read_expression($expression);
+	my ($total_gene,$total_repeat,$total_data_points,%profile) = read_expression($expression);
 	print STDERR "Number of gene:".$total_gene."\n";
 	my $know_init = $knowledge."_knowledge_init";
 	print STDERR "know_init:".$know_init;
@@ -391,19 +399,20 @@ sub main {
 		print STDERR "generate initial knowledge failed <".$know_init.">\n";die;
 	}
 	my $config = $expression."_config";
-	generate_config($config,$total_gene);
+	generate_config($config,$total_gene,$total_repeat,$total_data_points,%profile);
 	print STDERR "Step1:Initialisation\n";
 	my @fix;
 	my $all_fix = 0;
 	my $total_fix_no = 0;
 	my %fix_status;
-	my $iteration = 1;#first iteration;
+	my %confidence;
+	my $generation = 1;#first generation;
 	for(my $i=0;$i<$total_gene;$i++){
 		$fix[$i] = check_knowledge($know_init,$i);
 		print STDERR "fix[".$i."]:".$fix[$i]."\n";
 		$total_fix_no += $fix[$i];
 	}
-	print STDERR "Iteration".$iteration." fix:".$total_fix_no."\n";
+	print STDERR "Generation".$generation." fix:".$total_fix_no."\n";
 	if($total_fix_no == $total_gene){
 		$all_fix = 1;
 	}
@@ -411,19 +420,19 @@ sub main {
 	#=======finished initial=================================================
 	if(!$all_fix){
 		do{
-			print STDERR "Iteration ".$iteration."\n";
+			print STDERR "Generation ".$generation."\n";
 			my $use_knowledge;
-			if($iteration == 1){
+			if($generation == 1){
 				$use_knowledge = $know_init;
 			}else{
-				$use_knowledge = $knowledge."_knowledge_ForStep".$iteration;
+				$use_knowledge = $knowledge."_knowledge_ForStep".$generation;
 			}
 			if(!-e $use_knowledge){
 				print STDERR "use knowledge does not exist <".$use_knowledge.">\n";die;
 			}
-			run_EMA($iteration, "evolutionary",$use_knowledge,$config,$total_gene,\@fix);
-			$iteration++;
-			my $new_knowledge_file = $knowledge."_knowledge_Forstep".$iteration;
+			%confidence = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence);
+			$generation++;
+			my $new_knowledge_file = $knowledge."_knowledge_Forstep".$generation;
 			$total_fix_no = 0;
 			print STDERR "step5:GRN combination\n";
 			for(my $i=0;$i<$total_gene;$i++){
@@ -431,18 +440,19 @@ sub main {
 				print STDERR "fix[".$i."]:".$fix[$i]."\n";
 				$total_fix_no += $fix[$i];
 			}
-			print STDERR "Iteration".$iteration." fix:".$total_fix_no."\n";
+			print STDERR "Generation".$generation." fix:".$total_fix_no."\n";
 			print STDERR "step6:Termination test\n";
 			if($total_fix_no == $total_gene){
 				$all_fix = 1;
 			}
 		}while(!$all_fix)
 	}
-	my $final_knowledge = $knowledge."_knowledge_Forstep".$iteration;
+	my $final_knowledge = $knowledge."_knowledge_Forstep".$generation;
 	if(!-e $final_knowledge){
 		print STDERR "use final knowledge does not exist <".$final_knowledge.">\n";die;
 	}
-	run_EMA($iteration, "final",$final_knowledge,$config,$total_gene,\@fix);
+	#run_EMA($generation, "final",$final_knowledge,$config,$total_gene,\@fix);
+	run_quantification($generation,$final_knowledge,$config,$total_gene,%confidence);
 	
 	my $tmp_dir = $output_dir."/tmp";
 	if(!-d $tmp_dir){
@@ -492,21 +502,4 @@ if(-d $output_dir){
 }
 
 main();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
