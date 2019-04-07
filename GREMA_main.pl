@@ -147,7 +147,6 @@ sub generate_config {
 }
 sub run_quantification {
 	my ($gen,$use_know,$use_config,$total_gene_no,%confidence_level) = @_;
-	print STDERR "GRN quantification\n";
 	my $n_start;
 	my $n_end;
 	my @threads;
@@ -160,7 +159,6 @@ sub run_quantification {
 	my $final_results = $output_dir."/final_results.txt";
 	open FINAL,">",$final_results;
 	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
-	print STDERR "final optimized\n";
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$threads[$thr_count] = threads->new(\&run_iga, $i,$gen,$use_know,$use_config);
 		sleep(1) while(scalar threads->list(threads::running) >= $threads);
@@ -206,12 +204,12 @@ sub run_EMA {
 	my $next_generation = $gen + 1;
 	my $new_knowledge = $knowledge."_knowledge_ForStep".$next_generation;
 	open KNOW,">",$new_knowledge;
-	print STDERR "step2:GRN decomposition\n";
-	print STDERR "step3:Parallel solving\n";
+	print STDERR "Step2:GRN decomposition\n";
+	print STDERR "Step3:Parallel solving\n";
 	for(my $i=0; $i<$total_gene_no; $i++){
 		if($fix_value[$i]){
 			$gene_name = $gene_index{$i};
-			print STDERR $gene_name ."is finished\n";
+			print STDERR $gene_name ." is finished\n";
 		}else{
 			$threads[$thr_count] = threads->new(\&run_iga, $i,$gen,$use_know,$use_config);
 			sleep(1) while(scalar threads->list(threads::running) >= $threads);
@@ -270,7 +268,7 @@ sub run_EMA {
 			}
 		}#S-system model
 		my $know_info;
-		print STDERR "step4:Regulation determination\n";
+		print STDERR "Step4:Regulation determination\n";
 		for(my $j=0; $j<$total_gene_no; $j++){
 			my $tf_name = $gene_index{$j};
 			my $each_gene_knowledge;
@@ -302,11 +300,11 @@ sub run_EMA {
 			if(!$each_gene_knowledge){
 				$each_gene_knowledge = "? ";
 			}
-			print STDERR "role:".$each_gene_knowledge."\n";
-			print STDERR "TF:".$tf_name."\n";
-			print STDERR "P:".$regulatory_p[$j]."\n";
-			print STDERR "N:".$regulatory_n[$j]."\n";
-			print STDERR "Z:".$regulatory_z[$j]."\n";
+			print STDERR "TF-gene:".$tf_name."-".$gene_name."\n";
+			print STDERR "regulation:".$each_gene_knowledge."\n";
+			#print STDERR "P:".$regulatory_p[$j]."\n";
+			#print STDERR "N:".$regulatory_n[$j]."\n";
+			#print STDERR "Z:".$regulatory_z[$j]."\n";
 			print STDERR "=============================\n";
 			$know_info .= $each_gene_knowledge;
 		}
@@ -434,16 +432,18 @@ sub main {
 			$generation++;
 			my $new_knowledge_file = $knowledge."_knowledge_Forstep".$generation;
 			$total_fix_no = 0;
-			print STDERR "step5:GRN combination\n";
+			print STDERR "Step5:GRN combination\n";
 			for(my $i=0;$i<$total_gene;$i++){
 				$fix[$i] = check_knowledge($new_knowledge_file,$i);
 				print STDERR "fix[".$i."]:".$fix[$i]."\n";
 				$total_fix_no += $fix[$i];
 			}
 			print STDERR "Generation".$generation." fix:".$total_fix_no."\n";
-			print STDERR "step6:Termination test\n";
+			print STDERR "Step6:Qualitative termination test\n";
 			if($total_fix_no == $total_gene){
 				$all_fix = 1;
+			}else{
+				print STDERR "Step7:Inheritance\n";
 			}
 		}while(!$all_fix)
 	}
@@ -452,6 +452,7 @@ sub main {
 		print STDERR "use final knowledge does not exist <".$final_knowledge.">\n";die;
 	}
 	#run_EMA($generation, "final",$final_knowledge,$config,$total_gene,\@fix);
+	print STDERR "GRN quantification\n";
 	run_quantification($generation,$final_knowledge,$config,$total_gene,%confidence);
 	
 	my $tmp_dir = $output_dir."/tmp";
