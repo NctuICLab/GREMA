@@ -325,7 +325,7 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 10 -I ".$gen." -F 2 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 10000 -I ".$gen." -F 2 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
 		print STDERR $command."\n";
 		`$command`;
 	}
