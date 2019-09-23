@@ -325,7 +325,7 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 10000 -I ".$gen." -F 2 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 1000 -I ".$gen." -F 2 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
 		print STDERR $command."\n";
 		`$command`;
 	}
@@ -367,10 +367,11 @@ sub check_knowledge {
 	my ($know,$gene_no) = @_;
 	my ($line,@ele);
 	my $no = 0;
-	open KNOW,"<",$know;
+	open (KNOW,"<",$know) or die "open file ".$know." error\n";
 	while($line=<KNOW>){
 		chomp $line;
 		if($no == $gene_no){
+			print STDERR $line."\n";
 			my $unfix_no = 0;
 			@ele = split(/ /,$line);
 			foreach my $i(@ele){
@@ -386,6 +387,7 @@ sub check_knowledge {
 		}
 		$no++;
 	}
+	close KNOW;
 }
 sub main {
 	my ($total_gene,$total_repeat,$total_data_points,%profile) = read_expression($expression);
@@ -407,7 +409,6 @@ sub main {
 	my $generation = 1;#first generation;
 	for(my $i=0;$i<$total_gene;$i++){
 		$fix[$i] = check_knowledge($know_init,$i);
-		print STDERR "fix[".$i."]:".$fix[$i]."\n";
 		$total_fix_no += $fix[$i];
 	}
 	print STDERR "Generation".$generation." fix:".$total_fix_no."\n";
@@ -430,7 +431,7 @@ sub main {
 			}
 			%confidence = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence);
 			$generation++;
-			my $new_knowledge_file = $knowledge."_knowledge_Forstep".$generation;
+			my $new_knowledge_file = $knowledge."_knowledge_ForStep".$generation;
 			$total_fix_no = 0;
 			print STDERR "Step5:GRN combination\n";
 			for(my $i=0;$i<$total_gene;$i++){
@@ -447,7 +448,7 @@ sub main {
 			}
 		}while(!$all_fix)
 	}
-	my $final_knowledge = $knowledge."_knowledge_Forstep".$generation;
+	my $final_knowledge = $knowledge."_knowledge_ForStep".$generation;
 	if(!-e $final_knowledge){
 		print STDERR "use final knowledge does not exist <".$final_knowledge.">\n";die;
 	}
