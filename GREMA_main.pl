@@ -8,7 +8,9 @@ use Getopt::Long qw(:config no_ignore_case);
 my $expression;
 my $knowledge;
 my $threads;
-my $model;
+my $model = "HFODE";
+my $fitness_type = 2;
+my $generation_no = 1000;
 my $output_dir;
 my $help;
 my $program = abs_path($0);
@@ -24,7 +26,9 @@ Options:
 	-i	[FILE]	time-series profile
 	-o	[PATH]	Output Directory
 	-k	[FILE]	knowledge of regulatory
-	-m	[model] {s-system,HFODE}
+	-m	[model] {s-system,HFODE} Default is HFODE
+	-f	[Fitness] {0,1,2,3,4} Default is 2
+	-g	[Generation] Number of generation, default is 1000
 	-t	[No]	Number of threads
 	-h	Show the usage
 	";
@@ -325,7 +329,7 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G 1000 -I ".$gen." -F 2 ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
 		print STDERR $command."\n";
 		`$command`;
 	}
@@ -371,7 +375,7 @@ sub check_knowledge {
 	while($line=<KNOW>){
 		chomp $line;
 		if($no == $gene_no){
-			print STDERR $line."\n";
+			#print STDERR $line."\n";
 			my $unfix_no = 0;
 			@ele = split(/ /,$line);
 			foreach my $i(@ele){
@@ -479,9 +483,11 @@ GetOptions(
 	'k=s'	=>\$knowledge,
 	't=i'	=>\$threads,
 	'm=s'	=>\$model,
+	'g=i'	=>\$generation_no,
+	'f=i'	=>\$fitness_type,
 	'h'	=>\$help,
 ); 
-if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$model || !$output_dir){
+if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
 	Usage();die;
 }
 if(!-e $expression){
@@ -493,7 +499,15 @@ if(!-e $knowledge){
 	Usage();die;
 }
 if(($model ne "s-system")and($model ne "HFODE")){
-	print STDERR "type of model error\n";
+	print STDERR "type of model is error\n";
+	Usage();die;
+}
+if($generation_no < 100){
+	print STDERR "generation must be > 100\n";
+	Usage();die;
+}
+if(($fitness_type != 0)and($fitness_type != 1)and($fitness_type != 2)and($fitness_type != 3)and($fitness_type != 4)){
+	print STDERR "type of fitness function is error\n";
 	Usage();die;
 }
 if(-d $output_dir){
