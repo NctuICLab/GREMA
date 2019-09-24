@@ -12,6 +12,7 @@ my $model = "HFODE";
 my $fitness_type = 2;
 my $generation_no = 1000;
 my $output_dir;
+my $cc = 0;
 my $help;
 my $program = abs_path($0);
 #======================
@@ -28,6 +29,7 @@ Options:
 	-k	[FILE]	knowledge of regulatory
 	-m	[model] {s-system,HFODE} Default is HFODE
 	-f	[Fitness] {0,1,2,3,4} Default is 2
+	-c	[cc]	{0,1} Default is 0, consider correlation coefficient
 	-g	[Generation] Number of generation, default is 1000
 	-t	[No]	Number of threads
 	-h	Show the usage
@@ -329,7 +331,7 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
 		print STDERR $command."\n";
 		`$command`;
 	}
@@ -485,9 +487,14 @@ GetOptions(
 	'm=s'	=>\$model,
 	'g=i'	=>\$generation_no,
 	'f=i'	=>\$fitness_type,
+	'c=i'	=>\$cc,
 	'h'	=>\$help,
 ); 
 if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
+	Usage();die;
+}
+if(($cc != 0)and($cc != 1)){
+	print STDERR "type of cc is error ".$cc."\n";
 	Usage();die;
 }
 if(!-e $expression){
