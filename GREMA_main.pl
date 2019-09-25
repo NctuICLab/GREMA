@@ -19,6 +19,7 @@ my $program = abs_path($0);
 my %gene_index;
 my @chars = ('0'..'9', 'A'..'F');
 my $len = 8;
+my $min = 0;
 my $hashKey;
 while($len--){
 	$hashKey .= $chars[rand @chars];
@@ -36,6 +37,7 @@ Options:
 	-c	[cc]	{0,1} Default is 0, consider correlation coefficient
 	-g	[Generation] Number of generation, default is 1000
 	-t	[No]	Number of threads
+	-min	[value] ex: 0.01 [min value] default is 0
 	-h	Show the usage
 	";
 }
@@ -251,9 +253,18 @@ sub run_EMA {
 				for(my $r=$n_start; $r<$n_end; $r++){
 					my $gene_no = $r-2;
 					if($iga[$r] > 0){
-						$regulatory_p[$gene_no]++;
+						if(abs($iga[$r]) > $min){
+							$regulatory_p[$gene_no]++;
+						}else{
+							$regulatory_z[$gene_no]++;
+						}
 					}elsif($iga[$r] < 0){
-						$regulatory_n[$gene_no]++;
+						if(abs($iga[$r]) > $min){
+							$regulatory_n[$gene_no]++;
+						}else{
+							$regulatory_z[$gene_no]++;
+						}
+			
 					}else{
 						$regulatory_z[$gene_no]++;
 					}
@@ -498,9 +509,14 @@ GetOptions(
 	'g=i'	=>\$generation_no,
 	'f=i'	=>\$fitness_type,
 	'c=i'	=>\$cc,
+	'min=s'	=>\$min,
 	'h'	=>\$help,
 ); 
 if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
+	Usage();die;
+}
+if($min < 0){
+	print STDERR "min value must be >= 0\n";
 	Usage();die;
 }
 if(($cc != 0)and($cc != 1)){
