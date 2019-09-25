@@ -424,8 +424,8 @@ sub main {
 	my $log = $output_dir."/".$hashKey."/run.log";
 	open LOG,">",$log;
 	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
-	print LOG "Use know init:".$know_init."\nUse config:".$config."\n";
-	print LOG "Use Fitness".$fitness_type."\nUse threads:".$threads."\nUse generation:".$generation_no."\nUse CC:".$cc."\n";
+	print LOG "Use know init:".$know_init."\nUse config:".$config."\nUse input data:".$expression."\n";
+	print LOG "Use Fitness".$fitness_type."\nUse threads:".$threads."\nUse generation:".$generation_no."\nUse CC:".$cc."\nUse min:".$min."\n";
 	close LOG;
 	print STDERR "Step1:Initialisation\n";
 	my @fix;
