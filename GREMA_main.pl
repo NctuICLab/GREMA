@@ -75,7 +75,7 @@ sub read_expression {
 		}
 	}
 	close PROFILE;
-	my @all_gene = (sort (keys %{$profile_expression{1}}));#get the gene name
+	my @all_gene = keys %{$profile_expression{1}};#get the gene name
 	my $gene_no = 0;
 	foreach my $i (@all_gene){
 		print STDERR $i."\n";
