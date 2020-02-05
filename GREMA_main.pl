@@ -19,6 +19,7 @@ my $program = abs_path($0);
 my %gene_index;
 my @chars = ('0'..'9', 'A'..'F');
 my $len = 8;
+my $min = 0;
 my $hashKey;
 while($len--){
 	$hashKey .= $chars[rand @chars];
@@ -36,6 +37,7 @@ Options:
 	-c	[cc]	{0,1} Default is 0, consider correlation coefficient
 	-g	[Generation] Number of generation, default is 1000
 	-t	[No]	Number of threads
+	-min	[value] ex: 0.01 [min value] default is 0
 	-h	Show the usage
 	";
 }
@@ -53,10 +55,17 @@ sub read_expression {
 			@ele = split(/=/,$line);
 			$total_rep = $ele[1];
 			print STDERR "total replication:".$total_rep."\n";
-		}elsif($line =~ /^rep/){
+		}elsif($line =~ /timepoint_number=/){
+			@ele = split(/=/,$line);
+			$total_point = $ele[1];
+			print STDERR "total timepoint:".$total_point."\n";
+		}
+		elsif($line =~ /^rep/){
 			@ele = split(/\t/,$line);
-			$total_point = scalar @ele - 2;
-			#print STDERR "total point:".$total_point."\n";
+			my $tps = scalar @ele - 2;
+			if($tps != $total_point){
+				print STDERR $line."\n";die;
+			}
 			my $rep_no = $ele[0];
 			my $gene_name = $ele[1];
 			my $profile_info;
@@ -73,10 +82,10 @@ sub read_expression {
 		}
 	}
 	close PROFILE;
-	my @all_gene = (sort (keys %{$profile_expression{1}}));#get the gene name
+	my @all_gene = keys %{$profile_expression{1}};#get the gene name
 	my $gene_no = 0;
 	foreach my $i (@all_gene){
-		print STDERR $i."\n";
+		#print STDERR $i."\n";
 		$gene_index{$gene_no} = $i;
 		$gene_no++;
 	}
@@ -148,6 +157,9 @@ sub generate_config {
 		print CONF $i."\n";
 		for(my $j=0;$j<$total_gene_no;$j++){
 			my $gene_name = $gene_index{$j};
+			if(!$profile_expression{$i}{$gene_name}){
+			    print STDERR "i:".$i."\tgene_name:".$gene_name."\n";die;
+			}
 			print CONF $profile_expression{$i}{$gene_name}."\n";
 		}
 		#print CONF "\n";
@@ -251,9 +263,18 @@ sub run_EMA {
 				for(my $r=$n_start; $r<$n_end; $r++){
 					my $gene_no = $r-2;
 					if($iga[$r] > 0){
-						$regulatory_p[$gene_no]++;
+						if(abs($iga[$r]) > $min){
+							$regulatory_p[$gene_no]++;
+						}else{
+							$regulatory_z[$gene_no]++;
+						}
 					}elsif($iga[$r] < 0){
-						$regulatory_n[$gene_no]++;
+						if(abs($iga[$r]) > $min){
+							$regulatory_n[$gene_no]++;
+						}else{
+							$regulatory_z[$gene_no]++;
+						}
+			
 					}else{
 						$regulatory_z[$gene_no]++;
 					}
@@ -327,7 +348,7 @@ sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
 	my $src_dir = dirname($program);
 	if($model eq "HFODE"){
-		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE";
+		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE_divide3";
 		if(!-e $ema_HFODE){
 			print STDERR $ema_HFODE." does not exist\n";die;
 		}
@@ -413,8 +434,8 @@ sub main {
 	my $log = $output_dir."/".$hashKey."/run.log";
 	open LOG,">",$log;
 	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
-	print LOG "Use know init:".$know_init."\nUse config:".$config."\n";
-	print LOG "Use Fitness".$fitness_type."\nUse threads:".$threads."\nUse generation:".$generation_no."\nUse CC:".$cc."\n";
+	print LOG "Use know init:".$know_init."\nUse config:".$config."\nUse input data:".$expression."\n";
+	print LOG "Use Fitness".$fitness_type."\nUse threads:".$threads."\nUse generation:".$generation_no."\nUse CC:".$cc."\nUse min:".$min."\n";
 	close LOG;
 	print STDERR "Step1:Initialisation\n";
 	my @fix;
@@ -498,9 +519,14 @@ GetOptions(
 	'g=i'	=>\$generation_no,
 	'f=i'	=>\$fitness_type,
 	'c=i'	=>\$cc,
+	'min=s'	=>\$min,
 	'h'	=>\$help,
 ); 
 if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
+	Usage();die;
+}
+if($min < 0){
+	print STDERR "min value must be >= 0\n";
 	Usage();die;
 }
 if(($cc != 0)and($cc != 1)){

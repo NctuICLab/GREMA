@@ -175,12 +175,12 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
     }
     else
     {
-        if(NumVars <= 10){
+	//if(NumVars <= 10){
             NumConnections = possible;
-        }else{
-            val = possible/2.0;
-            NumConnections = (int)(val + 0.5);
-        }
+	//}else{
+        //   val = possible/2.0;
+        //   NumConnections = (int)(val + 0.5);
+        //}
         id_TFs = true;
     }
     fp.close();
