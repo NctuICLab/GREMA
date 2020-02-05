@@ -55,10 +55,17 @@ sub read_expression {
 			@ele = split(/=/,$line);
 			$total_rep = $ele[1];
 			print STDERR "total replication:".$total_rep."\n";
-		}elsif($line =~ /^rep/){
+		}elsif($line =~ /timepoint_number=/){
+			@ele = split(/=/,$line);
+			$total_point = $ele[1];
+			print STDERR "total timepoint:".$total_point."\n";
+		}
+		elsif($line =~ /^rep/){
 			@ele = split(/\t/,$line);
-			$total_point = scalar @ele - 2;
-			#print STDERR "total point:".$total_point."\n";
+			my $tps = scalar @ele - 2;
+			if($tps != $total_point){
+				print STDERR $line."\n";die;
+			}
 			my $rep_no = $ele[0];
 			my $gene_name = $ele[1];
 			my $profile_info;
@@ -78,7 +85,7 @@ sub read_expression {
 	my @all_gene = keys %{$profile_expression{1}};#get the gene name
 	my $gene_no = 0;
 	foreach my $i (@all_gene){
-		print STDERR $i."\n";
+		#print STDERR $i."\n";
 		$gene_index{$gene_no} = $i;
 		$gene_no++;
 	}
@@ -150,6 +157,9 @@ sub generate_config {
 		print CONF $i."\n";
 		for(my $j=0;$j<$total_gene_no;$j++){
 			my $gene_name = $gene_index{$j};
+			if(!$profile_expression{$i}{$gene_name}){
+			    print STDERR "i:".$i."\tgene_name:".$gene_name."\n";die;
+			}
 			print CONF $profile_expression{$i}{$gene_name}."\n";
 		}
 		#print CONF "\n";
@@ -338,7 +348,7 @@ sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
 	my $src_dir = dirname($program);
 	if($model eq "HFODE"){
-		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE";
+		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE_divide3";
 		if(!-e $ema_HFODE){
 			print STDERR $ema_HFODE." does not exist\n";die;
 		}
