@@ -6,6 +6,7 @@ An EMA-based method, GREMA, infers a novel type of gene regulatory network with 
 There are 2 input tsv files: time-series data and domain knowledge data.
 1. The format of time-series data [Dream4 insilico_size10_1](input/Dream4_10_1_timeseries_expression.txt)
  - repeat_number= (ex:repeat_number=5)
+ - timepoint_number= (ex:timepoint_number=21)
  - time-series profile (rep1 \<tab\> gene_name \<tab\> gene_expression)
 2. The format of domain knowledge data [Dream 4 insilico size10_1](input/insilico_size10_1_know_knowledge.txt)
  - TF
