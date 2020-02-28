@@ -348,7 +348,7 @@ sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
 	my $src_dir = dirname($program);
 	if($model eq "HFODE"){
-		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE_divide3";
+		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE";
 		if(!-e $ema_HFODE){
 			print STDERR $ema_HFODE." does not exist\n";die;
 		}
