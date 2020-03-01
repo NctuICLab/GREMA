@@ -221,9 +221,8 @@ sub run_quantification {
 	close FINAL;
 }
 sub run_EMA {
-	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,$fix_status_ref) = @_;
+	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,%fix_status_generation) = @_;
 	my @fix_value = @{$fix_ref};
-	my %fix_status_generation = %{$fix_status_ref};
 	my @threads;
 	my $thr_count = 0;
 	my $gene_name;
@@ -231,7 +230,8 @@ sub run_EMA {
 	my $cutoff = 0.8;
 	my $next_generation = $gen + 1;
 	my $new_knowledge = $knowledge."_knowledge_ForStep".$next_generation;
-	print STDERR "fix_status_generation{G9-0}:".$fix_status_generation{"G9-0"}."\n";die;
+	my $key = "G9-0";
+	print STDERR "fix_status_generation{G9-0}:".$fix_status_generation{$key}."\n";die;
 	open KNOW,">",$new_knowledge;
 	print STDERR "Step2:GRN decomposition\n";
 	print STDERR "Step3:Parallel solving\n";
