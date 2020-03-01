@@ -131,7 +131,8 @@ sub read_knowledge {
 			}
 		}
 		$regulation_knowledge =~ s/ $//;
-		$fix_status_generation{$gene_name} = $regulation_knowledge;
+		my $key = $gene_name."-0";
+		$fix_status_generation{$key} = $regulation_knowledge;
 		print INIT "\n";
 	}
 	close INIT;
