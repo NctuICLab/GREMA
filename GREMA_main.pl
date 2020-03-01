@@ -351,6 +351,9 @@ sub run_EMA {
 			my $last_generation = $gen - 1;
 			my $last_gene_generation_key = $gene_name."-".$last_generation;
 			print STDERR "Check the status of the determined regulations\n";
+			print STDERR "fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+			print STDERR "fix_status_generation{".$last_gene_generation_key."}:".$fix_status_generation{$last_gene_generation_key}."\n";
+			die;
 			if($fix_status_generation{$gene_generation_key} eq $fix_status_generation{$last_gene_generation_key}){
 				print STDERR "Get the same fix regulations, so need to fix more regulations\n";
 				my @select_iga_results = select_results(1,$iga_results);#select top 1
@@ -602,7 +605,7 @@ if(-d $output_dir){
 	$output_dir =~ s/\/$//;
 	my $final = $output_dir."/final_results.txt";
 	if(-e $final){
-		print STDERR "This folder already has the final_results.txt\n";die;
+		print STDERR "This output folder already has the final_results.txt\n";die;
 	}
 }else{
 	print STDERR "Directory of output does not exist\n";
