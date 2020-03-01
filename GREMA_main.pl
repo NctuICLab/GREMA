@@ -17,13 +17,8 @@ my $help;
 my $program = abs_path($0);
 #======================
 my %gene_index;
-my @chars = ('0'..'9', 'A'..'F');
-my $len = 8;
 my $min = 0;
-my $hashKey;
-while($len--){
-	$hashKey .= $chars[rand @chars];
-}
+
 
 
 sub Usage {
@@ -187,7 +182,7 @@ sub run_quantification {
 		$n_start = 2;
 		$n_end = 2+$total_gene_no;
 	}
-	my $final_results = $output_dir."/".$hashKey."/final_results.txt";
+	my $final_results = $output_dir."/final_results.txt";
 	open FINAL,">",$final_results;
 	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
 	for(my $i=0; $i<$total_gene_no; $i++){
@@ -200,7 +195,7 @@ sub run_quantification {
 	}
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$gene_name = $gene_index{$i};
-		my $iga_results = $output_dir."/".$hashKey."/".$gene_name.".txt";
+		my $iga_results = $output_dir."/".$gene_name.".txt";
 		if(!-e $iga_results){
 			print STDERR $gene_name."'s iga result does not exist\n";die;
 		}
@@ -253,7 +248,7 @@ sub run_EMA {
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$gene_name = $gene_index{$i};
 		my (@regulatory_p,@regulatory_n,@regulatory_z);
-		my $iga_results = $output_dir."/".$hashKey."/".$gene_name.".txt";
+		my $iga_results = $output_dir."/".$gene_name.".txt";
 		if(!-e $iga_results){
 			print STDERR $gene_name."'s iga result does not exist\n";die;
 		}
@@ -402,8 +397,8 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$hashKey."/".$gene_name.".txt";
-		print STDERR $command."\n";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		#print STDERR $command."\n";
 		`$command`;
 	}
 
@@ -478,7 +473,7 @@ sub main {
 	}
 	my $config = $expression."_config";
 	generate_config($config,$total_gene,$total_repeat,$total_data_points,%profile);
-	my $log = $output_dir."/".$hashKey."/run.log";
+	my $log = $output_dir."/run.log";
 	open LOG,">",$log;
 	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
 	print LOG "Use know init:".$know_init."\nUse config:".$config."\nUse input data:".$expression."\n";
@@ -537,16 +532,19 @@ sub main {
 		print STDERR "use final knowledge does not exist <".$final_knowledge.">\n";die;
 	}
 	#run_EMA($generation, "final",$final_knowledge,$config,$total_gene,\@fix);
-	print STDERR "GRN quantification\n";
+	print STDERR "Step8:GRN quantification\n";
 	run_quantification($generation,$final_knowledge,$config,$total_gene,%confidence);
 	
-	my $tmp_dir = $output_dir."/".$hashKey."/tmp";
+	my $tmp_dir = $output_dir."/tmp";
 	if(!-d $tmp_dir){
 		my $command = "mkdir ".$tmp_dir;
 		print STDERR "create tmp folder\n";
 		`$command`;
 	}
 	my $command = "mv calprofile* ".$tmp_dir;
+	print STDERR $command."\n";
+	`$command`;
+	$command = "mv ".$knowledge."_knowledge_*".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
 	$command = "mv progress* ".$tmp_dir;
@@ -602,12 +600,14 @@ if(($fitness_type != 0)and($fitness_type != 1)and($fitness_type != 2)and($fitnes
 }
 if(-d $output_dir){
 	$output_dir =~ s/\/$//;
+	my $final = $output_dir."/final_results.txt";
+	if(-e $final){
+		print STDERR "This folder already has the final_results.txt\n";die;
+	}
 }else{
 	print STDERR "Directory of output does not exist\n";
 	my $cmd = "mkdir ".$output_dir;
 	`$cmd`;
 }
-my $cmd = "mkdir ".$output_dir."/".$hashKey;
-`$cmd`;
 main();
 
