@@ -514,7 +514,7 @@ sub main {
 			if(!-e $use_knowledge){
 				print STDERR "use knowledge does not exist <".$use_knowledge.">\n";die;
 			}
-			(%confidence,%fix_status) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence,\%fix_status);
+			(%confidence,%fix_status) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence,%fix_status);
 			$generation++;
 			my $new_knowledge_file = $knowledge."_knowledge_ForStep".$generation;
 			$total_fix_no = 0;
