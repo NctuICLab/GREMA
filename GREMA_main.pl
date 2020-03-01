@@ -113,7 +113,7 @@ sub read_knowledge {
 	open INIT,">",$know_init_file;
 	for(my $i=0;$i<$total_gene_no;$i++){#each target gene
 		my $gene_name = $gene_index{$i};
-		my $gene_name_generation = $gene_name."-0";#0 is the initial generation
+		my $gene_name_generation = $gene_name."_0";#0 is the initial generation
 		my $regulation_knowledge;
 		#print STDERR $gene_name.": ";
 		for(my $j=0;$j<$total_gene_no;$j++){#each TF
@@ -132,7 +132,7 @@ sub read_knowledge {
 		}
 		$regulation_knowledge =~ s/ $//;
 		$fix_status_generation{$gene_name_generation} = $regulation_knowledge;
-		print STDERR "fix_status_generation{".$gene_name_generation."}:".$fix_status_generation{$gene_name_generation}."\n";
+		#print STDERR "fix_status_generation{".$gene_name_generation."}:".$fix_status_generation{$gene_name_generation}."\n";
 		print INIT "\n";
 	}
 	close INIT;
@@ -221,8 +221,11 @@ sub run_quantification {
 	close FINAL;
 }
 sub run_EMA {
-	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,%fix_status_generation) = @_;
+	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,$confidence_ref,$fix_status_ref) = @_;
+	#my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,%fix_status_generation) = @_;
 	my @fix_value = @{$fix_ref};
+	my %confidence_level = %{$confidence_ref};
+	my %fix_status_generation = %{$fix_status_ref};
 	my @threads;
 	my $thr_count = 0;
 	my $gene_name;
@@ -230,8 +233,6 @@ sub run_EMA {
 	my $cutoff = 0.8;
 	my $next_generation = $gen + 1;
 	my $new_knowledge = $knowledge."_knowledge_ForStep".$next_generation;
-	my $key = "G9-0";
-	print STDERR "fix_status_generation{G9-0}:".$fix_status_generation{$key}."\n";die;
 	open KNOW,">",$new_knowledge;
 	print STDERR "Step2:GRN decomposition\n";
 	print STDERR "Step3:Parallel solving\n";
@@ -349,14 +350,13 @@ sub run_EMA {
 		}
 		
 		if(!$fix_value[$i]){#only check unfixed gene
-			my $gene_generation_key = $gene_name."-".$gen;
+			my $gene_generation_key = $gene_name."_".$gen;
 			$fix_status_generation{$gene_generation_key} = $know_info;
 			my $last_generation = $gen - 1;
-			my $last_gene_generation_key = $gene_name."-".$last_generation;
+			my $last_gene_generation_key = $gene_name."_".$last_generation;
 			print STDERR "Check the status of the determined regulations\n";
 			print STDERR "fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
 			print STDERR "fix_status_generation{".$last_gene_generation_key."}:".$fix_status_generation{$last_gene_generation_key}."\n";
-			die;
 			if($fix_status_generation{$gene_generation_key} eq $fix_status_generation{$last_gene_generation_key}){
 				print STDERR "Get the same fix regulations, so need to fix more regulations\n";
 				my @select_iga_results = select_results(1,$iga_results);#select top 1
@@ -389,7 +389,7 @@ sub run_EMA {
 		$know_info =~ s/ $//;		
 		print KNOW $know_info."\n";	
 	}
-	return (%confidence_level, %fix_status_generation);
+	return (\%confidence_level, \%fix_status_generation);
 }
 sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
@@ -473,6 +473,7 @@ sub main {
 	my $know_init = $knowledge."_knowledge_init";
 	print STDERR "know_init:".$know_init;
 	my %fix_status;
+	my $fix_ref;
 	%fix_status = read_knowledge($knowledge,$total_gene,$know_init);
 	if(!-e $know_init){
 		print STDERR "generate initial knowledge failed <".$know_init.">\n";die;
@@ -491,6 +492,7 @@ sub main {
 	my $total_fix_no = 0;
 	
 	my %confidence;
+	my $confidence_ref;
 	my $generation = 1;#first generation;
 	for(my $i=0;$i<$total_gene;$i++){
 		$fix[$i] = check_knowledge($know_init,$i);
@@ -514,7 +516,9 @@ sub main {
 			if(!-e $use_knowledge){
 				print STDERR "use knowledge does not exist <".$use_knowledge.">\n";die;
 			}
-			(%confidence,%fix_status) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,\%confidence,\%fix_status);
+			($confidence_ref,$fix_ref) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,\%confidence,\%fix_status);
+			%confidence = %{$confidence_ref};
+			%fix_status = %{$fix_ref};
 			$generation++;
 			my $new_knowledge_file = $knowledge."_knowledge_ForStep".$generation;
 			$total_fix_no = 0;
