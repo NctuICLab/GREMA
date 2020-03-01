@@ -17,13 +17,8 @@ my $help;
 my $program = abs_path($0);
 #======================
 my %gene_index;
-my @chars = ('0'..'9', 'A'..'F');
-my $len = 8;
 my $min = 0;
-my $hashKey;
-while($len--){
-	$hashKey .= $chars[rand @chars];
-}
+
 
 
 sub Usage {
@@ -97,6 +92,7 @@ sub read_knowledge {
 	my ($line,@ele);
 	my $format_tag = 0;
 	my %knowledge;
+	my %fix_status_generation;
 	open KNOW,"<",$know;
 	while($line=<KNOW>){
 		chomp $line;
@@ -117,21 +113,30 @@ sub read_knowledge {
 	open INIT,">",$know_init_file;
 	for(my $i=0;$i<$total_gene_no;$i++){#each target gene
 		my $gene_name = $gene_index{$i};
+		my $gene_name_generation = $gene_name."_0";#0 is the initial generation
+		my $regulation_knowledge;
 		#print STDERR $gene_name.": ";
 		for(my $j=0;$j<$total_gene_no;$j++){#each TF
 			my $tf_name = $gene_index{$j};
 			#print STDERR "TF:".$tf_name."\n";
 			if($knowledge{$tf_name}{$gene_name} eq '0'){
 				print INIT "0 ";
+				$regulation_knowledge .= "0 ";
 			}elsif(!$knowledge{$tf_name}{$gene_name}){
-				print INIT "? "
+				print INIT "? ";
+				$regulation_knowledge .= "? ";
 			}else{
 				print INIT $knowledge{$tf_name}{$gene_name}." ";
+				$regulation_knowledge .= $knowledge{$tf_name}{$gene_name}." ";
 			}
 		}
+		$regulation_knowledge =~ s/ $//;
+		$fix_status_generation{$gene_name_generation} = $regulation_knowledge;
+		#print STDERR "fix_status_generation{".$gene_name_generation."}:".$fix_status_generation{$gene_name_generation}."\n";
 		print INIT "\n";
 	}
 	close INIT;
+	return %fix_status_generation;
 }
 sub generate_config {
 	my ($configure,$total_gene_no,$total_rep,$total_point,%profile_expression) = @_;
@@ -178,7 +183,7 @@ sub run_quantification {
 		$n_start = 2;
 		$n_end = 2+$total_gene_no;
 	}
-	my $final_results = $output_dir."/".$hashKey."/final_results.txt";
+	my $final_results = $output_dir."/final_results.txt";
 	open FINAL,">",$final_results;
 	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
 	for(my $i=0; $i<$total_gene_no; $i++){
@@ -191,7 +196,7 @@ sub run_quantification {
 	}
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$gene_name = $gene_index{$i};
-		my $iga_results = $output_dir."/".$hashKey."/".$gene_name.".txt";
+		my $iga_results = $output_dir."/".$gene_name.".txt";
 		if(!-e $iga_results){
 			print STDERR $gene_name."'s iga result does not exist\n";die;
 		}
@@ -216,8 +221,11 @@ sub run_quantification {
 	close FINAL;
 }
 sub run_EMA {
-	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level) = @_;
+	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,$confidence_ref,$fix_status_ref) = @_;
+	#my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,%fix_status_generation) = @_;
 	my @fix_value = @{$fix_ref};
+	my %confidence_level = %{$confidence_ref};
+	my %fix_status_generation = %{$fix_status_ref};
 	my @threads;
 	my $thr_count = 0;
 	my $gene_name;
@@ -244,7 +252,7 @@ sub run_EMA {
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$gene_name = $gene_index{$i};
 		my (@regulatory_p,@regulatory_n,@regulatory_z);
-		my $iga_results = $output_dir."/".$hashKey."/".$gene_name.".txt";
+		my $iga_results = $output_dir."/".$gene_name.".txt";
 		if(!-e $iga_results){
 			print STDERR $gene_name."'s iga result does not exist\n";die;
 		}
@@ -281,9 +289,10 @@ sub run_EMA {
 				}
 			}
 		}else{
-			#S-system
-			my $n_start = 1;
-			my $n_end = 1+$total_gene_no;
+			#S-system for real GRN (Hij need to initial zero, only use Gij to determine the gene regulation)
+			print STDERR "S-system model for real GRN under construction\n";die;
+			my $n_start = 1;#Location of Gij 
+			my $n_end = 1+$total_gene_no;#Location of Gij
 			for(my $j=0; $j<$select_top_no; $j++){
 				my @iga = split(/\t/,$select_iga_results[$j]);
 				for(my $r=$n_start; $r<$n_end; $r++){
@@ -331,18 +340,56 @@ sub run_EMA {
 			if(!$each_gene_knowledge){
 				$each_gene_knowledge = "? ";
 			}
-			print STDERR "TF-gene:".$tf_name."-".$gene_name."\n";
-			print STDERR "regulation:".$each_gene_knowledge."\n";
+			#print STDERR "TF-gene:".$tf_name."-".$gene_name."\n";
+			#ßprint STDERR "regulation:".$each_gene_knowledge."\n";
 			#print STDERR "P:".$regulatory_p[$j]."\n";
 			#print STDERR "N:".$regulatory_n[$j]."\n";
 			#print STDERR "Z:".$regulatory_z[$j]."\n";
-			print STDERR "=============================\n";
+			#print STDERR "=============================\n";
 			$know_info .= $each_gene_knowledge;
 		}
-		$know_info =~ s/ $/\n/;
-		print KNOW $know_info;	
+		
+		if(!$fix_value[$i]){#only check unfixed gene
+			my $gene_generation_key = $gene_name."_".$gen;
+			$fix_status_generation{$gene_generation_key} = $know_info;
+			my $last_generation = $gen - 1;
+			my $last_gene_generation_key = $gene_name."_".$last_generation;
+			print STDERR "Check the status of the determined regulations\n";
+			print STDERR "fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+			print STDERR "fix_status_generation{".$last_gene_generation_key."}:".$fix_status_generation{$last_gene_generation_key}."\n";
+			if($fix_status_generation{$gene_generation_key} eq $fix_status_generation{$last_gene_generation_key}){
+				print STDERR "Get the same fix regulations, so need to fix more regulations\n";
+				my @select_iga_results = select_results(1,$iga_results);#select top 1
+				my @iga = split(/\t/,$select_iga_results[0]);
+				my $gene_knowledge;
+				if($model eq "HFODE"){
+					my $n_start = 2;
+					my $n_end = 2+$total_gene_no;
+					my $role;
+					for(my $r=$n_start; $r<$n_end; $r++){
+						if($iga[$r] > 0){
+							$role = "+";
+						}elsif($iga[$r] < 0){
+							$role = "-";
+						}else{
+							$role = 0;
+						}
+						$gene_knowledge .= $role." ";
+					}
+				}else{
+					#model == "S-system"
+					#S-system for real GRN (Hij need to initial zero, only use Gij to determine the gene regulation)
+					print STDERR "S-system model for real GRN under construction\n";die;
+					my $n_start = 1;
+					my $n_end = 1+$total_gene_no;
+				}
+				$know_info = $gene_knowledge;
+			}
+		}
+		$know_info =~ s/ $//;		
+		print KNOW $know_info."\n";	
 	}
-	return %confidence_level;
+	return (\%confidence_level, \%fix_status_generation);
 }
 sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
@@ -356,8 +403,8 @@ sub run_iga {
 			print STDERR $conf." does not exist\n";die;
 		}
 		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$hashKey."/".$gene_name.".txt";
-		print STDERR $command."\n";
+		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
+		#print STDERR $command."\n";
 		`$command`;
 	}
 
@@ -425,13 +472,15 @@ sub main {
 	print STDERR "Number of gene:".$total_gene."\n";
 	my $know_init = $knowledge."_knowledge_init";
 	print STDERR "know_init:".$know_init;
-	read_knowledge($knowledge,$total_gene,$know_init);
+	my %fix_status;
+	my $fix_ref;
+	%fix_status = read_knowledge($knowledge,$total_gene,$know_init);
 	if(!-e $know_init){
 		print STDERR "generate initial knowledge failed <".$know_init.">\n";die;
 	}
 	my $config = $expression."_config";
 	generate_config($config,$total_gene,$total_repeat,$total_data_points,%profile);
-	my $log = $output_dir."/".$hashKey."/run.log";
+	my $log = $output_dir."/run.log";
 	open LOG,">",$log;
 	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
 	print LOG "Use know init:".$know_init."\nUse config:".$config."\nUse input data:".$expression."\n";
@@ -441,8 +490,9 @@ sub main {
 	my @fix;
 	my $all_fix = 0;
 	my $total_fix_no = 0;
-	my %fix_status;
+	
 	my %confidence;
+	my $confidence_ref;
 	my $generation = 1;#first generation;
 	for(my $i=0;$i<$total_gene;$i++){
 		$fix[$i] = check_knowledge($know_init,$i);
@@ -466,7 +516,9 @@ sub main {
 			if(!-e $use_knowledge){
 				print STDERR "use knowledge does not exist <".$use_knowledge.">\n";die;
 			}
-			%confidence = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence);
+			($confidence_ref,$fix_ref) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,\%confidence,\%fix_status);
+			%confidence = %{$confidence_ref};
+			%fix_status = %{$fix_ref};
 			$generation++;
 			my $new_knowledge_file = $knowledge."_knowledge_ForStep".$generation;
 			$total_fix_no = 0;
@@ -490,16 +542,19 @@ sub main {
 		print STDERR "use final knowledge does not exist <".$final_knowledge.">\n";die;
 	}
 	#run_EMA($generation, "final",$final_knowledge,$config,$total_gene,\@fix);
-	print STDERR "GRN quantification\n";
+	print STDERR "Step8:GRN quantification\n";
 	run_quantification($generation,$final_knowledge,$config,$total_gene,%confidence);
 	
-	my $tmp_dir = $output_dir."/".$hashKey."/tmp";
+	my $tmp_dir = $output_dir."/tmp";
 	if(!-d $tmp_dir){
 		my $command = "mkdir ".$tmp_dir;
 		print STDERR "create tmp folder\n";
 		`$command`;
 	}
 	my $command = "mv calprofile* ".$tmp_dir;
+	print STDERR $command."\n";
+	`$command`;
+	$command = "mv ".$knowledge."_knowledge_* ".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
 	$command = "mv progress* ".$tmp_dir;
@@ -555,12 +610,14 @@ if(($fitness_type != 0)and($fitness_type != 1)and($fitness_type != 2)and($fitnes
 }
 if(-d $output_dir){
 	$output_dir =~ s/\/$//;
+	my $final = $output_dir."/final_results.txt";
+	if(-e $final){
+		print STDERR "This output folder already has the final_results.txt\n";die;
+	}
 }else{
 	print STDERR "Directory of output does not exist\n";
 	my $cmd = "mkdir ".$output_dir;
 	`$cmd`;
 }
-my $cmd = "mkdir ".$output_dir."/".$hashKey;
-`$cmd`;
 main();
 
