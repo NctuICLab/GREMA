@@ -230,6 +230,7 @@ sub run_EMA {
 	my $cutoff = 0.8;
 	my $next_generation = $gen + 1;
 	my $new_knowledge = $knowledge."_knowledge_ForStep".$next_generation;
+	print STDERR "fix_status_generation{G9-0}:".$fix_status_generation{"G9-0"}."\n";die;
 	open KNOW,">",$new_knowledge;
 	print STDERR "Step2:GRN decomposition\n";
 	print STDERR "Step3:Parallel solving\n";
@@ -342,7 +343,7 @@ sub run_EMA {
 			#print STDERR "P:".$regulatory_p[$j]."\n";
 			#print STDERR "N:".$regulatory_n[$j]."\n";
 			#print STDERR "Z:".$regulatory_z[$j]."\n";
-			print STDERR "=============================\n";
+			#print STDERR "=============================\n";
 			$know_info .= $each_gene_knowledge;
 		}
 		
@@ -387,7 +388,7 @@ sub run_EMA {
 		$know_info =~ s/ $//;		
 		print KNOW $know_info."\n";	
 	}
-	return %confidence_level;
+	return (%confidence_level, %fix_status_generation);
 }
 sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
@@ -512,7 +513,7 @@ sub main {
 			if(!-e $use_knowledge){
 				print STDERR "use knowledge does not exist <".$use_knowledge.">\n";die;
 			}
-			%confidence = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence,%fix_status);
+			(%confidence,%fix_status) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence,%fix_status);
 			$generation++;
 			my $new_knowledge_file = $knowledge."_knowledge_ForStep".$generation;
 			$total_fix_no = 0;
