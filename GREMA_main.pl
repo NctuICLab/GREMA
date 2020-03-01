@@ -131,11 +131,12 @@ sub read_knowledge {
 			}
 		}
 		$regulation_knowledge =~ s/ $//;
-		my $key = $gene_name."-0";
-		$fix_status_generation{$key} = $regulation_knowledge;
+		$fix_status_generation{$gene_name_generation} = $regulation_knowledge;
+		print STDERR "fix_status_generation{".$gene_name_generation."}:".$fix_status_generation{$gene_name_generation}."\n";
 		print INIT "\n";
 	}
 	close INIT;
+	die;
 	return %fix_status_generation;
 }
 sub generate_config {
