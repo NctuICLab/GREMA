@@ -136,7 +136,6 @@ sub read_knowledge {
 		print INIT "\n";
 	}
 	close INIT;
-	die;
 	return %fix_status_generation;
 }
 sub generate_config {
@@ -338,8 +337,8 @@ sub run_EMA {
 			if(!$each_gene_knowledge){
 				$each_gene_knowledge = "? ";
 			}
-			print STDERR "TF-gene:".$tf_name."-".$gene_name."\n";
-			print STDERR "regulation:".$each_gene_knowledge."\n";
+			#print STDERR "TF-gene:".$tf_name."-".$gene_name."\n";
+			#ßprint STDERR "regulation:".$each_gene_knowledge."\n";
 			#print STDERR "P:".$regulatory_p[$j]."\n";
 			#print STDERR "N:".$regulatory_n[$j]."\n";
 			#print STDERR "Z:".$regulatory_z[$j]."\n";
