@@ -544,7 +544,7 @@ sub main {
 	my $command = "mv calprofile* ".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
-	$command = "mv ".$knowledge."_knowledge_*".$tmp_dir;
+	$command = "mv ".$knowledge."_knowledge_* ".$tmp_dir;
 	print STDERR $command."\n";
 	`$command`;
 	$command = "mv progress* ".$tmp_dir;
