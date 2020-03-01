@@ -221,8 +221,9 @@ sub run_quantification {
 	close FINAL;
 }
 sub run_EMA {
-	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,%fix_status_generation) = @_;
+	my ($gen,$type,$use_know,$use_config,$total_gene_no,$fix_ref,%confidence_level,$fix_status_ref) = @_;
 	my @fix_value = @{$fix_ref};
+	my %fix_status_generation = %{$fix_status_ref};
 	my @threads;
 	my $thr_count = 0;
 	my $gene_name;
@@ -513,7 +514,7 @@ sub main {
 			if(!-e $use_knowledge){
 				print STDERR "use knowledge does not exist <".$use_knowledge.">\n";die;
 			}
-			(%confidence,%fix_status) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence,%fix_status);
+			(%confidence,%fix_status) = run_EMA($generation, "evolutionary",$use_knowledge,$config,$total_gene,\@fix,%confidence,\%fix_status);
 			$generation++;
 			my $new_knowledge_file = $knowledge."_knowledge_ForStep".$generation;
 			$total_fix_no = 0;
