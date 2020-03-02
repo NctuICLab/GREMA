@@ -348,7 +348,7 @@ sub run_EMA {
 			#print STDERR "=============================\n";
 			$know_info .= $each_gene_knowledge;
 		}
-		
+		$know_info =~ s/ $//;
 		if(!$fix_value[$i]){#only check unfixed gene
 			my $gene_generation_key = $gene_name."_".$gen;
 			$fix_status_generation{$gene_generation_key} = $know_info;
@@ -383,10 +383,14 @@ sub run_EMA {
 					my $n_start = 1;
 					my $n_end = 1+$total_gene_no;
 				}
+				$gene_knowledge =~ s/ $//;
 				$know_info = $gene_knowledge;
+				$fix_status_generation{$gene_generation_key} = $know_info;
+				"Update fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+				die;
 			}
 		}
-		$know_info =~ s/ $//;		
+				
 		print KNOW $know_info."\n";	
 	}
 	return (\%confidence_level, \%fix_status_generation);
