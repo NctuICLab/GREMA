@@ -386,7 +386,7 @@ sub run_EMA {
 				$gene_knowledge =~ s/ $//;
 				$know_info = $gene_knowledge;
 				$fix_status_generation{$gene_generation_key} = $know_info;
-				"Update fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+				print STDERR "Update fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
 				die;
 			}
 		}
@@ -439,7 +439,7 @@ sub select_results {
 	@sort_fitness = sort {$a <=> $b} @unsort_fitness;
 	for(my $i=0; $i<$top_no; $i++){
 		my $fitness_value = $sort_fitness[$i];
-		print STDERR $i." fitness:".$fitness_value."\t".$fitness_value{$fitness_value}."\n";
+		#print STDERR $i." fitness:".$fitness_value."\t".$fitness_value{$fitness_value}."\n";
 		$select_results[$i] = $fitness_value{$fitness_value};
 		#print STDERR "select result:".$select_results[$i]."\n";
 	}
