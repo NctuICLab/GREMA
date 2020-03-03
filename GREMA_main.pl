@@ -316,7 +316,7 @@ sub run_EMA {
 		}#S-system model
 		my $know_info;
 		if(!$fix_value[$i]){#only check unfixed gene
-			print STDERR "fix[".$i."]:".$gene_name." is not fix\n";
+			#print STDERR "fix[".$i."]:".$gene_name." is not fix\n";
 			for(my $j=0; $j<$total_gene_no; $j++){
 				my $tf_name = $gene_index{$j};
 				my $each_gene_knowledge;
@@ -358,8 +358,8 @@ sub run_EMA {
 			}
 			$know_info =~ s/ $//;
 		}else{
-			print STDERR "fix[".$i."]:".$gene_name." is fix\n";
-			print STDERR "fix_knowledge{".$i."}:".$fix_know{$i}."\n";
+			#print STDERR "fix[".$i."]:".$gene_name." is fix\n";
+			#print STDERR "fix_knowledge{".$i."}:".$fix_know{$i}."\n";
 			$know_info = $fix_know{$i};
 		}
 
@@ -546,7 +546,7 @@ sub main {
 		%fix_knowledge = %{$fix_knowledge_ref};
 		$total_fix_no += $fix[$i];
 	}
-	print STDERR "Generation ".$generation." fix: ".$total_fix_no."\n";
+	print STDERR "Initial Generation ".$generation." fix: ".$total_fix_no."\n";
 	if($total_fix_no == $total_gene){
 		$all_fix = 1;
 	}
@@ -564,22 +564,22 @@ sub main {
 			$generation++;
 			my $new_knowledge_file = $tmp_dir."/".$knowledge_filename."_ForStep".$generation.".txt";
 			$total_fix_no = 0;
-			print STDERR "Step5:GRN combination\n";
+			print STDERR "Step5: GRN combination\n";
 			for(my $i=0;$i<$total_gene;$i++){
 				($fix[$i],$fix_knowledge_ref) = check_knowledge($new_knowledge_file,$i,\%fix_knowledge);
 				%fix_knowledge = %{$fix_knowledge_ref};
-				print STDERR "fix[".$i."]:".$fix[$i]."\n";
-				print STDERR "fix_knowledge{".$i."}:".$fix_knowledge{$i}."\n";
+				#print STDERR "fix[".$i."]:".$fix[$i]."\n";
+				#print STDERR "fix_knowledge{".$i."}:".$fix_knowledge{$i}."\n";
 				$total_fix_no += $fix[$i];
 			}
 			my $last_gen = $generation - 1;
-			print STDERR "Generation ".$last_gen." fix: ".$total_fix_no."\n";
-			print STDERR "Step6:Qualitative termination test\n";
+			print STDERR "Generation ".$last_gen." finish, fix: ".$total_fix_no."\n";
+			print STDERR "Step6: Qualitative termination test\n";
 			if($total_fix_no == $total_gene){
 				$all_fix = 1;
 				print STDERR "All regulations are determined, go to Step8\n";
 			}else{
-				print STDERR "Step7:Inheritance\n";
+				print STDERR "Step7: Inheritance\n";
 			}
 		}while(!$all_fix)
 	}
