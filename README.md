@@ -56,7 +56,7 @@ Installing [Scikit learn](https://scikit-learn.org/0.16/install.html) for evalua
 ```shell
 pip3 install -U numpy scipy scikit-learn
 ```
-### Linux
+#### Linux
 ```shell
 sudo apt-get install build-essential python3-dev python3-setuptools \
                      python3-numpy python3-scipy \
