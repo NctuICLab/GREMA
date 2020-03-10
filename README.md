@@ -77,7 +77,7 @@ optional arguments:
                         The gold-standard undirected GRN file with path
 ```
 GREMA can reconstruct the **directed GRNs**, so we can evaluate the results using **directed** or **undirected** gold standard GRNs. Here are two types of evaluating commands:
-1. Run the evaluation script for **undirected** gold standard GRN.  
+1.  Run the evaluation script for **undirected** gold standard GRN.
 
 ```shell
 python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
@@ -98,7 +98,7 @@ PR AUC=0.720
 ==============================
 
 ```
-2. Run the evaluation script for **directed** gold standard GRN.  
+2.  Run the evaluation script for **directed** gold standard GRN.
 ```shell
 python3 evalutation/dream4_evaluate.py -d evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt 
 ==============================
