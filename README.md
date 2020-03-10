@@ -51,12 +51,12 @@ The format of results of GREMA [final results](output/Dream4_10_1/final_results.
 - CONFIDENCE_LEVEL
 
 ## Evaluation of GREMA
-Installing [Scikit learn](https://scikit-learn.org/0.16/install.html)
-Mac OSX
+Installing [Scikit learn](https://scikit-learn.org/0.16/install.html) for evaluation script
+### Mac OSX
 ```shell
 pip3 install -U numpy scipy scikit-learn
 ```
-Linux
+### Linux
 ```shell
 sudo apt-get install build-essential python3-dev python3-setuptools \
                      python3-numpy python3-scipy \
