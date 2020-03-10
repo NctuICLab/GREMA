@@ -16,10 +16,12 @@ There are 2 input tsv files: time-series data and domain knowledge data.
  ## Getting start
  ```shell
  git clone https://github.com/NctuICLab/GREMA.git
- cd GREMA;
- cd EMA_HFODE;make
- cd ../;
- perl GREMA.main.pl -i input/Dream4_10_1_timeseries_expression.txt -k input/insilico_size10_1_know_knowledge.txt -o output -m HFODE -t 10;
+ cd GREMA
+ cd EMA_HFODE
+ make
+ cd ../
+ cd ../
+ perl GREMA.main.pl -i input/Dream4_10_1_timeseries_expression.txt -k input/insilico_size10_1_know_knowledge.txt -o output/Dream4_10_1/ -t 10
  ```
  
  ## Usage of GREMA_main.pl
@@ -36,11 +38,41 @@ There are 2 input tsv files: time-series data and domain knowledge data.
 
 ## Results of GREMA
 ```shell
-cat output/final_results.txt
+less -S output/Dream4_10_1/final_results.txt
 ```
 The format of results of GREMA [final results](output/final_results.txt)
 - TF
 - GENE
 - REGULATORY (+:activation, -:repression, ?:unknown, 0:No regulation).
 - CONFIDENCE_LEVEL
+
+## Evaluation of GREMA
+```shell
+python3 evalutation/dream4_evaluate.py --help
+usage: Evaluation of GREMA performance. [-h] [-d DIRECTED] [-u UNDIRECTED]
+                                        input
+
+positional arguments:
+  input                 Path for GREMA's prediction file.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DIRECTED, --directed DIRECTED
+       Path for gold-standard directed GRN
+  -u UNDIRECTED, --undirected UNDIRECTED
+       Path for gold-standard undirected GRN
+python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
+oad gold file:evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
+load predict results:output/Dream4_10_1/final_results.txt
+TP=11, TN=23, FP=9, FN=2
+Sensitivity=0.846
+Specificity=0.719
+Accuracy=0.756
+ROC AUC=0.782
+PR AUC=0.720
+```
+
+
+
+
   
