@@ -1,0 +1,11 @@
+Total gene:10
+Total repeat:5
+Total data points:21
+Use know init:../../output/D4_10_1_f1/tmp/insilico_size10_noknowledge_ForStep1.txt
+Use config:Dream4_10_1_timeseries_expression.txt_config
+Use input data:Dream4_10_1_timeseries_expression.txt
+Use Fitness1
+Use threads:10
+Use generation:1000
+Use CC:0
+Use min:0

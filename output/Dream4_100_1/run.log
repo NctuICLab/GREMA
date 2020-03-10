@@ -1,0 +1,11 @@
+Total gene:100
+Total repeat:10																						
+Total data points:21
+Use know init:knowledge_100_no_prior.txt_knowledge_init
+Use config:D4_100_1_10repeats_config
+Use input data:D4_100_1_10repeats
+Use Fitness1
+Use threads:100
+Use generation:1000
+Use CC:0
+Use min:0
