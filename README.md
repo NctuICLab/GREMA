@@ -76,7 +76,9 @@ optional arguments:
   -u UNDIRECTED, --undirected UNDIRECTED
                         The gold-standard undirected GRN file with path
 ```
-Run the evaluation script
+GREMA can reconstruct the directed GRNs, so we can evaluate the results using directed or undirected gold standard GRNs. Here are two types of evaluating commands:
+1. Run the evaluation script for undirected gold standard GRN.
+
 ```shell
 python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
 ==============================
@@ -96,7 +98,25 @@ PR AUC=0.720
 ==============================
 
 ```
-
+2. Run the evaluation script for directed gold standard GRN.
+```shell
+python3 evalutation/dream4_evaluate.py -d evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt 
+==============================
+Start evaluating the results of GREMA
+Directed golden file is: evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
+Prediction file is output/Dream4_10_1/final_results.txt
+loading gold file:evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
+loading predict results:output/Dream4_10_1/final_results.txt
+==============================
+Performance of GREMA:
+TP=11, TN=57, FP=18, FN=4
+Sensitivity=0.733
+Specificity=0.760
+Accuracy=0.756
+ROC AUC=0.747
+PR AUC=0.579
+==============================
+```
 
 
 
