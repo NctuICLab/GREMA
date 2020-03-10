@@ -77,14 +77,13 @@ optional arguments:
 Run the evaluation script
 ```shell
 python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
-
-====================
+==============================
 Start evaluating the results of GREMA
 Undirected golden file is: evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
 Prediction file is output/Dream4_10_1/final_results.txt
 loading gold file:evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
 loading predict results:output/Dream4_10_1/final_results.txt
-====================
+==============================
 Performance of GREMA:
 TP=11, TN=23, FP=9, FN=2
 Sensitivity=0.846
@@ -92,7 +91,7 @@ Specificity=0.719
 Accuracy=0.756
 ROC AUC=0.782
 PR AUC=0.720
-====================
+==============================
 
 ```
 

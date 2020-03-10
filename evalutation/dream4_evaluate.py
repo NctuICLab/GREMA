@@ -22,8 +22,7 @@ def parse_arguments():
     return args
 
 def main():
-    print('\n')
-    print('='*20)
+    print('='*30)
     print('Start evaluating the results of GREMA')
     args = parse_arguments()
     prediction = {}
@@ -142,7 +141,7 @@ def main():
     roc_auc = roc_auc_score(ans_np, predict_np)
     precision, recall, _ = precision_recall_curve(ans_np, predict_np)
     pr_auc = auc(recall, precision)
-    print('='*20)
+    print('='*30)
     print('Performance of GREMA:')
     print(f'TP={TP}, TN={TN}, FP={FP}, FN={FN}')
     print('Sensitivity=%.3f' % (sen))
@@ -150,7 +149,7 @@ def main():
     print('Accuracy=%.3f' % (acc))
     print('ROC AUC=%.3f' % (roc_auc))
     print('PR AUC=%.3f' % (pr_auc))
-    print('='*20)
+    print('='*30)
 
 if __name__ == "__main__":
     main()   
