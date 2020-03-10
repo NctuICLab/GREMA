@@ -11,16 +11,14 @@ There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
  - TF
  - GENE
  - REGULATORY (+:activation, -:repression, ?:unknown, 0:No regulation).
-
 ## Getting start
  ```shell
  git clone https://github.com/NctuICLab/GREMA.git
  cd GREMA
  cd EMA_HFODE;make
  ```
- 
 ## Usage of GREMA
- To check the usage of GREMA_main.pl
+To check the usage of GREMA_main.pl
  ```shell
  perl GREMA_main.pl -h
  Usage: GREMA_main.pl [Options]
