@@ -14,9 +14,9 @@ def parse_arguments():
 
     # add long and short argument
     parser.add_argument('input', type=str, nargs=1,
-                        help="Path for GREMA's prediction file.")
-    parser.add_argument('-d', '--directed', type=str, help='Path for gold-standard directed GRN')
-    parser.add_argument('-u', '--undirected', type=str, help='Path for gold-standard undirected GRN')
+                        help="Prediction file (final_results.txt) with path.")
+    parser.add_argument('-d', '--directed', type=str, help='The gold-standard directed GRN file with path')
+    parser.add_argument('-u', '--undirected', type=str, help='The gold-standard undirected GRN file with path')
     # read arguments from the command line
     args = parser.parse_args()
     return args
