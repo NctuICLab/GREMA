@@ -19,8 +19,8 @@ There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
  cd EMA_HFODE;make
  ```
  
- ## Usage of GREMA_main.pl
- To check the usage of GREMA
+ ## Usage of GREMA
+ To check the usage of GREMA_main.pl
  ```shell
  perl GREMA_main.pl -h
  Usage: GREMA_main.pl [Options]
@@ -52,7 +52,7 @@ The format of results of GREMA [final results](output/Dream4_10_1/final_results.
 
 ## Evaluation of GREMA
 Installing [Scikit learn](https://scikit-learn.org/0.16/install.html) for evaluation script
-### Mac OSX
+#### Mac OSX
 ```shell
 pip3 install -U numpy scipy scikit-learn
 ```
@@ -62,7 +62,7 @@ sudo apt-get install build-essential python3-dev python3-setuptools \
                      python3-numpy python3-scipy \
                      libatlas-dev libatlas3gf-base
 ```
-To check the usage
+To check the usage of evaluation
 ```shell
 python3 evalutation/dream4_evaluate.py --help
 usage: Evaluation of GREMA performance. [-h] [-d DIRECTED] [-u UNDIRECTED] input
@@ -76,12 +76,12 @@ optional arguments:
   -u UNDIRECTED, --undirected UNDIRECTED
                         The gold-standard undirected GRN file with path
 ```
-Run the evaluate function
+Run the evaluation script
 ```shell
 python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
 
 ====================
-Start running GREMA
+Start evaluating the results of GREMA
 Undirected golden file is: evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
 Prediction file is output/Dream4_10_1/final_results.txt
 loading gold file:evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv

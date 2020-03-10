@@ -24,7 +24,7 @@ def parse_arguments():
 def main():
     print('\n')
     print('='*20)
-    print('Start running GREMA')
+    print('Start evaluating the results of GREMA')
     args = parse_arguments()
     prediction = {}
     prediction_value = {}
