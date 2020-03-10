@@ -6,20 +6,20 @@ There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
 1. The format of time-series data （e.g., [Dream4 insilico_size10_1](input/Dream4_10_1_timeseries_expression.txt))
  - repeat_number= (ex:repeat_number=5)
  - timepoint_number= (ex:timepoint_number=21)
- - time-series profile (rep1 \<tab\> gene_name \<tab\> gene_expression)
+ - time-series profile (repeat_number \<tab\> gene_name \<tab\> gene_expression)
 2. The format of domain knowledge data (e.g., [Dream 4 insilico size10_1](input/insilico_size10_1_know_knowledge.txt))
  - TF
  - GENE
  - REGULATORY (+:activation, -:repression, ?:unknown, 0:No regulation).
- 
- ## Getting start
+
+## Getting start
  ```shell
  git clone https://github.com/NctuICLab/GREMA.git
  cd GREMA
  cd EMA_HFODE;make
  ```
  
- ## Usage of GREMA
+## Usage of GREMA
  To check the usage of GREMA_main.pl
  ```shell
  perl GREMA_main.pl -h
