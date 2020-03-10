@@ -1,9 +1,8 @@
 # GREMA
-This work proposes an evolutionary modelling algorithm (EMA) that is based on evolutionary intelligence, including both crowd wisdom and an evolutionary strategy, to cope with the underdetermined problem. EMA uses an intelligent genetic algorithm to solve the large-scale parameter optimisation problem. 
-An EMA-based method, GREMA, infers a novel type of gene regulatory network with confidence levels for every inferred regulation. The higher the confidence level, the more accurate the inferred regulation. GREMA gradually determines the regulations of an eGRN with confidence levels in descending order using either an S-system or a Hill function-based ordinary differential equation model. 
+__GREMA__ is a program for inferring  a novel type of gene regulatory network (GRN) with confidence levels for every inferred regulation, which is emulated GRN (eGRN). The higher the confidence level, the more accurate the inferred regulation. GREMA gradually determines the regulations of an eGRN with confidence levels in descending order using either an S-system or a Hill function-based ordinary differential equation model. It makes use of an evolutionary modelling algorithm (EMA) that is based on evolutionary intelligence, including both crowd wisdom and an evolutionary strategy, to cope with the underdetermined problem. EMA uses an intelligent genetic algorithm to solve the large-scale parameter optimisation problem. 
 
 ## Input Data Format
-There are 2 input tsv files: time-series data and domain knowledge data.
+There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
 1. The format of time-series data [Dream4 insilico_size10_1](input/Dream4_10_1_timeseries_expression.txt)
  - repeat_number= (ex:repeat_number=5)
  - timepoint_number= (ex:timepoint_number=21)
@@ -17,8 +16,7 @@ There are 2 input tsv files: time-series data and domain knowledge data.
  ```shell
  git clone https://github.com/NctuICLab/GREMA.git
  cd GREMA
- cd EMA_HFODE
- make
+ cd EMA_HFODE;make
  ```
  
  ## Usage of GREMA_main.pl
@@ -53,6 +51,17 @@ The format of results of GREMA [final results](output/Dream4_10_1/final_results.
 - CONFIDENCE_LEVEL
 
 ## Evaluation of GREMA
+Installing [Scikit learn](https://scikit-learn.org/0.16/install.html)
+Mac OSX
+```shell
+pip3 install -U numpy scipy scikit-learn
+```
+Linux
+```shell
+sudo apt-get install build-essential python3-dev python3-setuptools \
+                     python3-numpy python3-scipy \
+                     libatlas-dev libatlas3gf-base
+```
 To check the usage
 ```shell
 python3 evalutation/dream4_evaluate.py --help
@@ -70,14 +79,23 @@ optional arguments:
 Run the evaluate function
 ```shell
 python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
-oad gold file:evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
-load predict results:output/Dream4_10_1/final_results.txt
+
+====================
+Start running GREMA
+Undirected golden file is: evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
+Prediction file is output/Dream4_10_1/final_results.txt
+loading gold file:evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
+loading predict results:output/Dream4_10_1/final_results.txt
+====================
+Performance of GREMA:
 TP=11, TN=23, FP=9, FN=2
 Sensitivity=0.846
 Specificity=0.719
 Accuracy=0.756
 ROC AUC=0.782
 PR AUC=0.720
+====================
+
 ```
 
 

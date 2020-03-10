@@ -22,20 +22,23 @@ def parse_arguments():
     return args
 
 def main():
+    print('\n')
+    print('='*20)
+    print('Start running GREMA')
     args = parse_arguments()
     prediction = {}
     prediction_value = {}
     ans = {}
     ans_value = {}
     if args.directed:
-        print(f'directed golden file is: {args.directed}')
+        print(f'Directed golden file is: {args.directed}')
         evaluate_type = 'directed'
     elif args.undirected:
-        print(f'undirected golden file is: {args.undirected}')
+        print(f'Undirected golden file is: {args.undirected}')
         evaluate_type = 'undirected'
     if os.path.exists(args.input[0]):
         predict = args.input[0]
-        print(f'input file is {predict}')
+        print(f'Prediction file is {predict}')
     else:
         raise Exception('input file does not exist')
 
@@ -43,7 +46,7 @@ def main():
         gold = args.undirected
     else:
         gold = args.directed
-    print(f'load gold file:{gold}')
+    print(f'loading gold file:{gold}')
     rgold = open(gold,'r')
     for line in rgold:
         clean_line = line.rstrip('\r\n')
@@ -58,7 +61,7 @@ def main():
         if key not in ans:
             ans_value[key] = regulation
 
-    print(f'load predict results:{predict}')
+    print(f'loading predict results:{predict}')
     rpredict = open(predict,'r')
     count = 0
     for line in rpredict:
@@ -128,10 +131,7 @@ def main():
     sen = TP/(TP + FN)
     spe = TN/(TN + FP)
     acc = (TN + TP)/(TN + TP + FN + FP)
-    print(f'TP={TP}, TN={TN}, FP={FP}, FN={FN}')
-    print('Sensitivity=%.3f' % (sen))
-    print('Specificity=%.3f' % (spe))
-    print('Accuracy=%.3f' % (acc))
+    
     
     #print(predict_list)
     #print(ans_list)
@@ -142,8 +142,15 @@ def main():
     roc_auc = roc_auc_score(ans_np, predict_np)
     precision, recall, _ = precision_recall_curve(ans_np, predict_np)
     pr_auc = auc(recall, precision)
+    print('='*20)
+    print('Performance of GREMA:')
+    print(f'TP={TP}, TN={TN}, FP={FP}, FN={FN}')
+    print('Sensitivity=%.3f' % (sen))
+    print('Specificity=%.3f' % (spe))
+    print('Accuracy=%.3f' % (acc))
     print('ROC AUC=%.3f' % (roc_auc))
     print('PR AUC=%.3f' % (pr_auc))
+    print('='*20)
 
 if __name__ == "__main__":
     main()   
