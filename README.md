@@ -53,7 +53,7 @@ usage: Evaluation of GREMA performance. [-h] [-d DIRECTED] [-u UNDIRECTED]
                                         input
 
 positional arguments:
-  input                 Path for GREMA's prediction file.
+  input                 Path for GREMA\'s prediction file.
 
 optional arguments:
   -h, --help            show this help message and exit
