@@ -49,7 +49,11 @@ To check the usage of GREMA_main.pl
 ## Run GREMA
 
 ```shell
-perl GREMA_main.pl -i input/Dream4_10_1_timeseries_expression.txt -k input/insilico_size10_no_prior_knowledge.txt -o output/Dream4_10_1/ -t 10
+perl GREMA_main.pl \
+    -i input/Dream4_10_1_timeseries_expression.txt \
+    -k input/insilico_size10_no_prior_knowledge.txt \
+    -o output/Dream4_10_1/ \
+    -t 10
 ```
 
 ## Results of GREMA
@@ -104,7 +108,9 @@ GREMA can reconstruct the **directed GRNs**, so we can evaluate the results usin
 Run the evaluation script for **undirected** gold standard GRN.
 
 ```shell
-python3 evalutation/dream4_evaluate.py -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
+python3 evalutation/dream4_evaluate.py \
+    -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv\
+    output/Dream4_10_1/final_results.txt
 ==============================
 Start evaluating the results of GREMA
 Undirected golden file is: evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
@@ -126,7 +132,9 @@ PR AUC=0.720
 Run the evaluation script for **directed** gold standard GRN.
 
 ```shell
-python3 evalutation/dream4_evaluate.py -d evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv output/Dream4_10_1/final_results.txt
+python3 evalutation/dream4_evaluate.py \
+  -d evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv \
+  output/Dream4_10_1/final_results.txt
 ==============================
 Start evaluating the results of GREMA
 Directed golden file is: evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
