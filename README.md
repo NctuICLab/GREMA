@@ -109,7 +109,7 @@ Run the evaluation script for **undirected** gold standard GRN.
 
 ```shell
 python3 evalutation/dream4_evaluate.py \
-    -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv\
+    -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv \
     output/Dream4_10_1/final_results.txt
 ==============================
 Start evaluating the results of GREMA
