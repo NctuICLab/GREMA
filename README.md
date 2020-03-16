@@ -85,6 +85,7 @@ pip3 install -U numpy scipy scikit-learn
 sudo apt-get install build-essential python3-dev python3-setuptools \
                      python3-numpy python3-scipy \
                      libatlas-dev libatlas3gf-base
+sudo pip3 install -U scikit-learn
 ```
 
 To check the usage of evaluation
