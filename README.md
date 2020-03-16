@@ -85,12 +85,13 @@ pip3 install -U numpy scipy scikit-learn
 sudo apt-get install build-essential python3-dev python3-setuptools \
                      python3-numpy python3-scipy \
                      libatlas-dev libatlas3gf-base
+sudo pip3 install -U scikit-learn
 ```
 
 To check the usage of evaluation
 
 ```shell
-python3 evalutation/dream4_evaluate.py --help
+python3 evaluation/dream4_evaluate.py --help
 usage: Evaluation of GREMA performance. [-h] [-d DIRECTED] [-u UNDIRECTED] input
 positional arguments:
   input                 Prediction file (final_results.txt) with path.
@@ -108,7 +109,7 @@ GREMA can reconstruct the **directed GRNs**, so we can evaluate the results usin
 Run the evaluation script for **undirected** gold standard GRN.
 
 ```shell
-python3 evalutation/dream4_evaluate.py \
+python3 evaluation/dream4_evaluate.py \
     -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv \
     output/Dream4_10_1/final_results.txt
 ==============================
@@ -132,7 +133,7 @@ PR AUC=0.720
 Run the evaluation script for **directed** gold standard GRN.
 
 ```shell
-python3 evalutation/dream4_evaluate.py \
+python3 evaluation/dream4_evaluate.py \
   -d evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv \
   output/Dream4_10_1/final_results.txt
 ==============================
