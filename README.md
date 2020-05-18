@@ -2,6 +2,10 @@
 
 **GREMA** (**G**ene networks **R**econstruction using **E**volutionary **M**odelling **A**lgorithm) is a program for inferring  a novel type of gene regulatory network (GRN) with confidence levels for every inferred regulation, which is emulated GRN (eGRN). The higher the confidence level, the more accurate the inferred regulation. GREMA gradually determines the regulations of an eGRN with confidence levels in descending order using either an S-system or a Hill function-based ordinary differential equation model. It makes use of an evolutionary modelling algorithm (EMA) that is based on evolutionary intelligence, including both crowd wisdom and an evolutionary strategy, to cope with the underdetermined problem. EMA uses an intelligent genetic algorithm to solve the large-scale parameter optimisation problem.
 
+## Citing GREMA
+
+GREMA: Modelling of emulated gene regulatory networks with confidence levels based on evolutionary intelligence to cope with the underdetermined problem. _*Bioinformatics*_, 2020,[https://doi.org/10.1093/bioinformatics/btaa267](https://doi.org/10.1093/bioinformatics/btaa267)
+
 ## Input Data Format
 
 There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
@@ -152,3 +156,9 @@ ROC AUC=0.747
 PR AUC=0.579
 ==============================
 ```
+
+## Contact
+
+- Shinn-Ying Ho: syho@nctu.edu.tw
+- Ming-Ju Tsai: milutsai.bi98g@g2.nctu.edu.tw
+- Jyun-Rong Wang: bengdex.bi99g@g2.nctu.edu.tw
