@@ -4,7 +4,7 @@
 
 ## Citing GREMA
 
-GREMA: Modelling of emulated gene regulatory networks with confidence levels based on evolutionary intelligence to cope with the underdetermined problem. _Bioinformatics_, 2020, [PMID:32399550](https://doi.org/10.1093/bioinformatics/btaa267)
+GREMA: Modelling of emulated gene regulatory networks with confidence levels based on evolutionary intelligence to cope with the underdetermined problem. _Bioinformatics_, 2020, [PMID:32399550](https://pubmed.ncbi.nlm.nih.gov/32399550/)
 
 ## Input Data Format
 
