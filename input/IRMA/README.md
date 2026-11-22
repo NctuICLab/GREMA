@@ -13,7 +13,18 @@
 | `IRMA_no_prior_knowledge.txt` | knowledge file (all `?`, self-regulation `0`) |
 | `IRMA_GoldStandard.tsv`, `IRMA_GoldStandardUndirected.tsv` | gold standards for `evaluation/dream4_evaluate.py` |
 
-**Preprocessing** (`convert_irma.py`): both data sets are scaled with the same linear map to [0.01, 1] (GREMA cannot use 0). All time points are kept; the two experiments are separate inputs because they have different numbers of time points. The time points are not evenly spaced in the original experiment, but GREMA treats them as unit time steps.
+**Preprocessing** (`convert_irma.py`): both data sets are scaled with the same linear map to [0.01, 1] (GREMA cannot use 0). All time points are kept; the two experiments are separate inputs because they have different numbers of time points. GREMA treats the time points as unit time steps. According to the literature the sampling interval is constant within each experiment (about 20 min for switch-on and 10 min for switch-off; not verified against the original paper), and each experiment is analysed separately, so this only changes the time scale of the fitted rates.
+
+The first time point (before the shift, the washing period) is kept. Removing it, as done in some other studies, made the results worse (5 runs, HFODE, `-g 500`):
+
+| Data | First point | TP | FP | AUROC | AUPRC |
+|------|-------------|----|----|-------|-------|
+| switch-on | kept | 4.0 | 1.0 | 0.708 | 0.600 |
+| switch-on | removed | 1.6 | 3.4 | 0.460 | 0.393 |
+| switch-off | kept | 4.0 | 2.0 | 0.677 | 0.565 |
+| switch-off | removed | 3.4 | 2.0 | 0.640 | 0.537 |
+
+AUROC and AUPRC are computed over the 25 possible directed edges (8 true), scoring an edge with its `CONFIDENCE_LEVEL` and a non-edge with 0 (random: AUROC 0.5, AUPRC 0.4).
 
 ```shell
 mkdir -p output/IRMA_switch_on
