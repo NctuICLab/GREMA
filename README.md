@@ -6,55 +6,99 @@
 
 GREMA: Modelling of emulated gene regulatory networks with confidence levels based on evolutionary intelligence to cope with the underdetermined problem. _Bioinformatics_, 2020, [PMID:32399550](https://pubmed.ncbi.nlm.nih.gov/32399550/)
 
-## Input Data Format
+## Requirements
 
-There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
+- Perl with thread support (check with `perl -V:useithreads`, it should print `useithreads='define'`)
+- `g++` and `make`
+- Python 3 with numpy, scipy and scikit-learn (only for the evaluation script, see [Evaluation of GREMA](#evaluation-of-grema))
 
-**The format of time-series data** (e.g., [Dream4 insilico_size10_1](input/Dream4_10_1_timeseries_expression.txt))
+## Getting started
 
-- repeat_number= (e.g.,repeat_number=5)
-- timepoint_number= (e.g.,timepoint_number=21)
-- time-series profile (repeat_number \<tab\> gene_name \<tab\> gene_expression)
-
-**The format of domain knowledge data** (e.g., [Dream 4 insilico size10_1](input/insilico_size10_1_know_knowledge.txt))
-
-- TF
-- GENE
-- REGULATORY (+:activation, -:repression, ?:unknown, 0:No regulation).
-
-## Getting start
-
- ```shell
- git clone https://github.com/NctuICLab/GREMA.git
- cd GREMA
- cd EMA_HFODE;make
- ```
+```shell
+git clone https://github.com/NctuICLab/GREMA.git
+cd GREMA
+cd EMA_HFODE; make; cd ..
+```
 
 To use the S-system model (`-m s-system`), also compile it:
 
- ```shell
- cd EMA_SSYSTEM;make
- ```
+```shell
+cd EMA_SSYSTEM; make; cd ..
+```
+
+## Input Data Format
+
+GREMA needs 2 tab-separated input files: 1) time-series data and 2) domain knowledge.
+
+### Time-series data
+
+Example: [Dream4 insilico_size10_1](input/Dream4_10_1_timeseries_expression.txt)
+
+```
+repeat_number=5
+timepoint_number=21
+rep1<TAB>G1<TAB>0.6665<TAB>0.3258<TAB>...(one value per time point)
+rep1<TAB>G2<TAB>0.1272<TAB>0.1218<TAB>...
+...
+rep5<TAB>G10<TAB>...
+```
+
+- `repeat_number=`: number of replicates (time series).
+- `timepoint_number=`: number of time points in each time series.
+- Then one line per replicate and gene: `rep<N>`, gene name, and the expression value at each time point. Every gene must appear in every replicate, and each line must have exactly `timepoint_number` values.
+
+### Domain knowledge
+
+Examples: [no prior knowledge](input/insilico_size10_no_prior_knowledge.txt), [partial knowledge](input/insilico_size10_1_know_knowledge.txt)
+
+```
+TF<TAB>GENE<TAB>REGULATORY
+G1<TAB>G1<TAB>0
+G2<TAB>G1<TAB>?
+G3<TAB>G1<TAB>?
+...
+```
+
+There is one line for every TF-gene pair (including `G1 -> G1`). The `REGULATORY` column can be:
+
+| Value | Meaning |
+|-------|---------|
+| `?` | unknown, let GREMA infer it |
+| `+` | known activation |
+| `-` | known repression |
+| `0` | known to have no regulation |
+
+If you have no prior knowledge, use the "no prior knowledge" example as a template: all pairs are `?` except the self-regulations (`G1 -> G1`, ...) which are `0`. The "partial knowledge" example additionally sets some pairs to `0`, which makes the search easier.
 
 ## Usage of GREMA
 
-To check the usage of GREMA_main.pl
+```shell
+perl GREMA_main.pl -h
+Usage: GREMA_main.pl [Options]
+Options:
+       -i      [FILE]  time-series profile
+       -o      [PATH]  Output Directory
+       -k      [FILE]  knowledge of regulatory
+       -m      [model] {s-system,HFODE} Default is HFODE
+       -f      [Fitness] {0,1,2,3,4} Default is 1
+       -c      [cc]    {0,1} Default is 0, consider correlation coefficient
+       -g      [Generation] Number of generation, default is 1000
+       -t      [No]    Number of threads
+       -min    [value] ex: 0.01 [min value] default is 0
+       -h      Show the usage
+```
 
- ```shell
- perl GREMA_main.pl -h
- Usage: GREMA_main.pl [Options]
- Options:
-        -i      [FILE]  time-series profile
-        -o      [PATH]  Output Directory
-        -k      [FILE]  knowledge of regulatory
-        -m      [model] {s-system,HFODE} Default is HFODE
-        -f      [Fitness] {0,1,2,3,4} Default is 1
-        -c      [cc]    {0,1} Default is 0, consider correlation coefficient
-        -g      [Generation] Number of generation, default is 1000
-        -t      [No]    Number of threads
-        -min    [value] ex: 0.01 [min value] default is 0
-        -h      Show the usage
- ```
+| Option | Required | Description |
+|--------|----------|-------------|
+| `-i` | yes | Time-series file. |
+| `-k` | yes | Domain knowledge file. |
+| `-o` | yes | Output directory. **It must already exist** (GREMA does not create it) and must not contain a `final_results.txt` yet. |
+| `-t` | yes | Number of threads, i.e. how many genes are optimised at the same time. Use at most the number of CPU cores. |
+| `-m` | no | Model, see [Models](#models). Default `HFODE`. |
+| `-g` | no | Maximum number of generations of the genetic algorithm for each run, at least 100. Default 1000. A run also stops early when the best fitness has not changed for 1000 generations. |
+| `-f` | no | Fitness function (error between the observed and the simulated expression): `0` squared relative error, `1` squared error (default), `2` squared error of the derivative + squared relative error, `3` squared error of the derivative + squared error, `4` squared error of the derivative only. |
+| `-c` | no | `1` adds the correlation-coefficient term `1 - CC` to the fitness. Default `0`. |
+| `-min` | no | A parameter whose absolute value is not larger than this value is treated as "no regulation" when determining the regulations. Default `0`. |
 
 ## Models
 
@@ -65,42 +109,62 @@ To check the usage of GREMA_main.pl
 
 ## Run GREMA
 
+### Quick test
+
+Create a new output directory and run a short test with a small number of generations (`-g 100`):
+
 ```shell
+mkdir -p output/test_run
 perl GREMA_main.pl \
     -i input/Dream4_10_1_timeseries_expression.txt \
     -k input/insilico_size10_no_prior_knowledge.txt \
-    -o output/Dream4_10_1/ \
-    -t 10
+    -o output/test_run/ \
+    -g 100 \
+    -t 4
 ```
 
-Run GREMA with the S-system model (the output directory must already exist, and `-g` sets the number of generations of the evolutionary algorithm):
+The progress is printed to the terminal. On a laptop, a 10-gene network with `-g 100` took about 1 minute with HFODE and about 3 minutes with the S-system model.
+
+### Full run
+
+Remove `-g 100` to use the default 1000 generations (the setting used for the results in `output/`). This takes much longer, and the running time grows quickly with the number of genes, so use as many threads as you have cores:
 
 ```shell
-mkdir -p output/Dream4_10_1_ssystem
+mkdir -p output/Dream4_10_1_new
 perl GREMA_main.pl \
     -i input/Dream4_10_1_timeseries_expression.txt \
     -k input/insilico_size10_no_prior_knowledge.txt \
-    -o output/Dream4_10_1_ssystem/ \
-    -m s-system \
+    -o output/Dream4_10_1_new/ \
     -t 10
 ```
+
+To use the S-system model, add `-m s-system`.
+
+The `output/Dream4_*` directories in this repository already contain the results of GREMA on the DREAM4 networks. Choose a new output directory, otherwise GREMA stops with `This output folder already has the final_results.txt`.
 
 ## Results of GREMA
 
 ```shell
-less -S output/Dream4_10_1/final_results.txt
+less -S output/test_run/final_results.txt
 ```
 
-The format of results of GREMA (e.g., Results of Dream4 size10 Network1: [final results](output/Dream4_10_1/final_results.txt))
+Example: [results of Dream4 size10 Network1](output/Dream4_10_1/final_results.txt)
 
-- TF
-- GENE
-- REGULATORY (+:activation, -:repression, ?:unknown, 0:No regulation).
-- CONFIDENCE_LEVEL
+| Column | Description |
+|--------|-------------|
+| `TF` | Regulator. |
+| `GENE` | Target gene. |
+| `REGULATORY` | `+` activation, `-` repression, `0` no regulation. |
+| `CONFIDENCE_LEVEL` | `1 / iteration`, where *iteration* is the round of GREMA in which the regulation was determined. `1.000` means it was determined in the first round (the most reliable), `0.500` in the second round, `0.333` in the third, and so on. |
+
+The other files in the output directory:
+
+- `G*.txt`: the parameters, fitness and correlation coefficient of the 30 runs of the evolutionary algorithm for each gene (from the final quantification step).
+- `tmp/`: intermediate files, such as the knowledge of each round (`*_ForStep*.txt`) and the simulated profiles (`calprofile*`).
 
 ## Evaluation of GREMA
 
-Installing [Scikit learn](https://scikit-learn.org/0.16/install.html) for evaluation script
+Install [scikit-learn](https://scikit-learn.org/stable/install.html) for the evaluation script
 
 ### Mac OSX
 
