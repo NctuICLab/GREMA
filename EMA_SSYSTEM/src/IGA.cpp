@@ -748,6 +748,8 @@ void IGA::Mutation()
     
     
     //============h_location=================================//
+    if(NO_h > 0)//no Hij is searched when all Hij are fixed to 0
+    {
     for(i=0;i<m_size2;i++)
     {
         //printf("mutant location\n");
@@ -786,6 +788,7 @@ void IGA::Mutation()
         hij = *(Chromosomes+PARAM_NUM*m_pop+hij_index);
         *(Chromosomes+PARAM_NUM*m_pop+hij_index)=MutateOneValue(hij,hij_index,h_index);
     }
+    }//end of NO_h > 0
     //============alpha, beta==============================================================
     for(i=0;i<m_size1;i++)
     {
