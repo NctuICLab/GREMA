@@ -19,6 +19,7 @@ my $program = abs_path($0);
 #======================
 my %gene_index;
 my $min = 0;
+my $h_know_file;#S-system only
 
 
 
@@ -36,6 +37,13 @@ Options:
 	-min	[value] ex: 0.01 [min value] default is 0
 	-h	Show the usage
 	";
+}
+#Column range of the regulation parameters in the EMA output (one line per run)
+#HFODE: b,TransMax,n(1..N),k(1..N),degrade ; S-system: alpha,g(1..N),beta,h(1..N),delta_t
+sub regulation_columns {
+	my ($total_gene_no) = @_;
+	my $n_start = ($model eq "HFODE") ? 2 : 1;
+	return ($n_start, $n_start + $total_gene_no);
 }
 sub read_expression {
 	my ($profile,$log_file) = @_;
@@ -142,6 +150,15 @@ sub read_knowledge {
 	close INIT;
 	return %fix_status_generation;
 }
+#S-system only: Hij are fixed to 0 (only Gij is used to determine the regulations)
+sub generate_h_knowledge {
+	my ($total_gene_no,$h_file) = @_;
+	open HKNOW,">",$h_file or die "cannot write ".$h_file."\n";
+	for(my $i=0;$i<$total_gene_no;$i++){
+		print HKNOW join(" ",(0) x $total_gene_no)."\n";
+	}
+	close HKNOW;
+}
 sub generate_config {
 	my ($configure,$total_gene_no,$total_rep,$total_point,%profile_expression) = @_;
 	open CONF,">",$configure;
@@ -150,17 +167,31 @@ sub generate_config {
 	print CONF "num_run ".$total_rep."\n";
 	print CONF "num_trial ".$total_point."\n";
 	print CONF "nochange 1000\n";
-	print CONF "delta_t 1\n";
-	print CONF "b_up 1\n";
-	print CONF "b_down 0\n";
-	print CONF "transMax_up 8\n";
-	print CONF "transMax_down 0\n";
-	print CONF "n_up 4\n";
-	print CONF "n_down -4\n";
-	print CONF "k_up 4\n";
-	print CONF "k_down 0\n";
-	print CONF "degrade_up 1\n";
-	print CONF "degrade_down 0\n";
+	if($model eq "HFODE"){
+		print CONF "delta_t 1\n";
+		print CONF "b_up 1\n";
+		print CONF "b_down 0\n";
+		print CONF "transMax_up 8\n";
+		print CONF "transMax_down 0\n";
+		print CONF "n_up 4\n";
+		print CONF "n_down -4\n";
+		print CONF "k_up 4\n";
+		print CONF "k_down 0\n";
+		print CONF "degrade_up 1\n";
+		print CONF "degrade_down 0\n";
+	}else{
+		#S-system: dX/dt = alpha*prod(Xj^gij) - beta*prod(Xj^hij), time step is fixed to 1
+		print CONF "alpha_up 4\n";
+		print CONF "alpha_down 0\n";
+		print CONF "beta_up 4\n";
+		print CONF "beta_down 0\n";
+		print CONF "g_up 3\n";
+		print CONF "g_down -3\n";
+		print CONF "h_up 3\n";
+		print CONF "h_down -3\n";
+		print CONF "deltat_up 1\n";
+		print CONF "deltat_down 1\n";
+	}
 	print CONF "list_data\n";
 	for(my $i=1;$i<=$total_rep;$i++){
 		print CONF $i."\n";
@@ -183,10 +214,7 @@ sub run_quantification {
 	my @threads;
 	my $thr_count = 0;
 	my $gene_name;
-	if($model eq "HFODE"){
-		$n_start = 2;
-		$n_end = 2+$total_gene_no;
-	}
+	($n_start,$n_end) = regulation_columns($total_gene_no);
 	my $final_results = $output_dir."/final_results.txt";
 	open FINAL,">",$final_results;
 	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
@@ -208,7 +236,7 @@ sub run_quantification {
 		print STDERR "Gene:".$gene_name." ".$select_iga_results[0]."\n";
 		my @iga = split(/\t/,$select_iga_results[0]);
 		for(my $r=$n_start; $r<$n_end; $r++){
-			my $tf_no = $r-2;
+			my $tf_no = $r-$n_start;
 			my $tf_name = $gene_index{$tf_no};
 			my $role;
 			if($iga[$r]>0){
@@ -269,14 +297,13 @@ sub run_EMA {
 			$regulatory_n[$j] = 0;
 			$regulatory_z[$j] = 0;
 		}
-		if($model eq "HFODE"){
-			#b(i),TransMax(i),n(i,j),k(i,j),deg(i)
-			my $n_start = 2;
-			my $n_end = 2+$total_gene_no;
+		{
+			#HFODE: n(i,j) ; S-system: g(i,j) (Hij are fixed to 0)
+			my ($n_start,$n_end) = regulation_columns($total_gene_no);
 			for(my $j=0; $j<$select_top_no; $j++){
 				my @iga = split(/\t/,$select_iga_results[$j]);
 				for(my $r=$n_start; $r<$n_end; $r++){
-					my $gene_no = $r-2;
+					my $gene_no = $r-$n_start;
 					if($iga[$r] > 0){
 						if(abs($iga[$r]) > $min){
 							$regulatory_p[$gene_no]++;
@@ -289,31 +316,12 @@ sub run_EMA {
 						}else{
 							$regulatory_z[$gene_no]++;
 						}
-			
 					}else{
 						$regulatory_z[$gene_no]++;
 					}
 				}
 			}
-		}else{
-			#S-system for real GRN (Hij need to initial zero, only use Gij to determine the gene regulation)
-			print STDERR "S-system model for real GRN under construction\n";die;
-			my $n_start = 1;#Location of Gij 
-			my $n_end = 1+$total_gene_no;#Location of Gij
-			for(my $j=0; $j<$select_top_no; $j++){
-				my @iga = split(/\t/,$select_iga_results[$j]);
-				for(my $r=$n_start; $r<$n_end; $r++){
-					my $gene_no = $r-1;
-					if($iga[$r] > 0){
-						$regulatory_p[$gene_no]++;
-					}elsif($iga[$r] < 0){
-						$regulatory_n[$gene_no]++;
-					}else{
-						$regulatory_z[$gene_no]++;
-					}
-				}
-			}
-		}#S-system model
+		}
 		my $know_info;
 		if(!$fix_value[$i]){#only check unfixed gene
 			#print STDERR "fix[".$i."]:".$gene_name." is not fix\n";
@@ -377,38 +385,25 @@ sub run_EMA {
 				my @select_iga_results = select_results(1,$iga_results);#select top 1
 				my @iga = split(/\t/,$select_iga_results[0]);
 				my $gene_knowledge;
-				if($model eq "HFODE"){
-					my $n_start = 2;
-					my $n_end = 2+$total_gene_no;
+				{
+					my ($n_start,$n_end) = regulation_columns($total_gene_no);
 					my $role;
 					for(my $r=$n_start; $r<$n_end; $r++){
-						my $tf_index = $r-2;
+						my $tf_index = $r-$n_start;
 						my $tf_name = $gene_index{$tf_index};
 						my $relationship = $tf_name."_".$gene_name;
 						if($iga[$r] > 0){
 							$role = "+";
-							if(!$confidence_level{$relationship}){
-								$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-							}
 						}elsif($iga[$r] < 0){
 							$role = "-";
-							if(!$confidence_level{$relationship}){
-								$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-							}
 						}else{
 							$role = 0;
-							if(!$confidence_level{$relationship}){
-								$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-							}
+						}
+						if(!$confidence_level{$relationship}){
+							$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
 						}
 						$gene_knowledge .= $role." ";
 					}
-				}else{
-					#model == "S-system"
-					#S-system for real GRN (Hij need to initial zero, only use Gij to determine the gene regulation)
-					print STDERR "S-system model for real GRN under construction\n";die;
-					my $n_start = 1;
-					my $n_end = 1+$total_gene_no;
 				}
 				$gene_knowledge =~ s/ $//;
 				$know_info = $gene_knowledge;
@@ -438,6 +433,25 @@ sub run_iga {
 		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
 		#print STDERR $command."\n";
 		`$command`;
+	}else{
+		my $ema_ssystem = $src_dir."/EMA_SSYSTEM/EMA_ssystem";
+		if(!-e $ema_ssystem){
+			print STDERR $ema_ssystem." does not exist, please run make in EMA_SSYSTEM\n";die;
+		}
+		if(!-e $conf){
+			print STDERR $conf." does not exist\n";die;
+		}
+		my $gene_name = $gene_index{$gene_no};
+		#EMA_ssystem takes the Gij knowledge file and the Hij knowledge file (all 0)
+		#and writes the results to IGA_result<gene_no>_step<gen>.txt in the current directory
+		my $result = "IGA_result".$gene_no."_step".$gen.".txt";
+		unlink $result;
+		my $command = $ema_ssystem." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." ".$h_know_file." > /dev/null";
+		`$command`;
+		if(!-s $result){
+			print STDERR $gene_name.": ".$ema_ssystem." produced no result (".$result.")\n";die;
+		}
+		rename($result,$output_dir."/".$gene_name.".txt") or die "cannot move ".$result."\n";
 	}
 
 }
@@ -533,6 +547,10 @@ sub main {
 		print STDERR "generate initial knowledge failed <".$use_knowledge.">\n";die;
 	}
 	generate_config($config,$total_gene,$total_repeat,$total_data_points,%profile);
+	if($model eq "s-system"){
+		$h_know_file = $tmp_dir."/h_knowledge_zero.txt";
+		generate_h_knowledge($total_gene,$h_know_file);
+	}
 	
 	open LOG,">",$log;
 	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";

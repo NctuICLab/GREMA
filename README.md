@@ -30,6 +30,12 @@ There are 2 input tsv files: 1) Time-series data and 2) Domain knowledge data.
  cd EMA_HFODE;make
  ```
 
+To use the S-system model (`-m s-system`), also compile it:
+
+ ```shell
+ cd EMA_SSYSTEM;make
+ ```
+
 ## Usage of GREMA
 
 To check the usage of GREMA_main.pl
@@ -50,6 +56,13 @@ To check the usage of GREMA_main.pl
         -h      Show the usage
  ```
 
+## Models
+
+| Model | Option | Executable | Notes |
+|-------|--------|------------|-------|
+| Hill function-based ODE | `-m HFODE` (default) | `EMA_HFODE/EMA_HFODE` | Regulations are determined from the sign of the Hill coefficients `n_ij`. |
+| S-system | `-m s-system` | `EMA_SSYSTEM/EMA_ssystem` | Regulations are determined from the sign of the kinetic orders `g_ij`. The `h_ij` are fixed to 0 (the degradation term is a constant `beta`), and at most `N/3` regulators are searched for each gene (`N` is the number of genes). |
+
 ## Run GREMA
 
 ```shell
@@ -57,6 +70,18 @@ perl GREMA_main.pl \
     -i input/Dream4_10_1_timeseries_expression.txt \
     -k input/insilico_size10_no_prior_knowledge.txt \
     -o output/Dream4_10_1/ \
+    -t 10
+```
+
+Run GREMA with the S-system model (the output directory must already exist, and `-g` sets the number of generations of the evolutionary algorithm):
+
+```shell
+mkdir -p output/Dream4_10_1_ssystem
+perl GREMA_main.pl \
+    -i input/Dream4_10_1_timeseries_expression.txt \
+    -k input/insilico_size10_no_prior_knowledge.txt \
+    -o output/Dream4_10_1_ssystem/ \
+    -m s-system \
     -t 10
 ```
 
@@ -114,13 +139,13 @@ Run the evaluation script for **undirected** gold standard GRN.
 
 ```shell
 python3 evaluation/dream4_evaluate.py \
-    -u evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv \
+    -u evaluation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv \
     output/Dream4_10_1/final_results.txt
 ==============================
 Start evaluating the results of GREMA
-Undirected golden file is: evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
+Undirected golden file is: evaluation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
 Prediction file is output/Dream4_10_1/final_results.txt
-loading gold file:evalutation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
+loading gold file:evaluation/gold_standards_undirected/10/DREAM4_GoldStandardUndirected_InSilico_Size10_1.tsv
 loading predict results:output/Dream4_10_1/final_results.txt
 ==============================
 Performance of GREMA:
@@ -138,13 +163,13 @@ Run the evaluation script for **directed** gold standard GRN.
 
 ```shell
 python3 evaluation/dream4_evaluate.py \
-  -d evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv \
+  -d evaluation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv \
   output/Dream4_10_1/final_results.txt
 ==============================
 Start evaluating the results of GREMA
-Directed golden file is: evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
+Directed golden file is: evaluation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
 Prediction file is output/Dream4_10_1/final_results.txt
-loading gold file:evalutation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
+loading gold file:evaluation/gold_standards/10/DREAM4_GoldStandard_InSilico_Size10_1.tsv
 loading predict results:output/Dream4_10_1/final_results.txt
 ==============================
 Performance of GREMA:
