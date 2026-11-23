@@ -3,6 +3,18 @@
 This file is written for an agent (or person) that continues the work on a faster machine. Everything needed is in the
 repository: code, data, scripts and the results of the finished runs. The user's language is Chinese; report to them in Chinese.
 
+## 0. Start here
+
+Read in this order (about 15 minutes): this file, `input/IRMA/README.md` (what was tried on IRMA: HFODE vs S-system, simulation of the
+data-size effect, first time point, HFODE-based and GP augmentation; the tables there were made **before** PR #18, section 4 below has the
+updated ones), `input/SOS/README.md` (data, gold standard, paper numbers), then `README.md` (usage, options, output format).
+Run `experiments/scripts/eval_runs.py` on the archived results (section 2) to see that your setup reproduces the numbers in section 4,
+then start with task T1.
+
+A prompt for the agent: *"Read experiments/HANDOFF.md in this repository and continue the analyses listed in section 5, starting with
+T1. Follow the rules in section 3. Build the solvers, check that the archived results reproduce, then run the tasks and write the
+results back as a short report (tables with AUROC/AUPRC, TP/FP, what you ran, what you could not do)."*
+
 ## 1. Goal and context
 
 GREMA infers a gene regulatory network from time-series data with an ODE model (HFODE = Hill-function ODE, or S-system)
@@ -28,7 +40,7 @@ tar xzf experiments/results/final_results.tgz -C /some/dir    # archived results
 ```
 
 Scripts (`experiments/scripts/`): `run_one.sh` (one GREMA run in an isolated directory), `eval_runs.py` (AUROC/AUPRC of
-groups of runs; `--by` for seed-wise means), `convergence.py` (GA convergence from the progress files), `gp_auto.py`,
+groups of runs; `--by` for seed-wise means), `iteration_table.py` (per-iteration TP/TN/FP/FN like the paper's Table 5), `convergence.py` (GA convergence from the progress files), `gp_auto.py`,
 `gp_v2.py` (GP augmentation: sample trajectories from the data), `sim_gen.py` (simulated data with the IRMA topology).
 
 Practical notes
@@ -78,7 +90,7 @@ Paper (Table 5): TP 7, TN 42, FP 14, FN 1 (SEN 0.88, SPE 0.75, ACC 0.77); 4 GREM
 | 4 experiments as replicates, diagonal `?`, `-f 1` | 64 | 3 (partial) | 5.7 / 21.7 | 0.661 / 0.184 | 0.680 / 0.205 | 0.754 / 0.290 |
 
 - With 1 experiment the result is at random level; the true edges found all have sign `+` although LexA is a repressor.
-- With 4 experiments it is clearly better (preliminary, 3 runs); LexA -> LexA comes out as `-` (correct); still far from the paper (TP 7 / FP 14).
+- With 4 experiments it is clearly better (preliminary, 3 runs); LexA -> LexA comes out as `-` (correct); still far from the paper (TP 7 / FP 14). Binary result over the 64 pairs: SEN 0.71, SPE 0.61, ACC 0.62 (paper 0.88 / 0.75 / 0.77); 3 GREMA iterations that determined 87% / 10% / 3% of the pairs (paper: 4 iterations, 76% / 14% / 5% / 5%).
 - The paper's data are "4 experiments"; how it fed them to GREMA, and its preprocessing, are not stated (we use `log2(x+1)`, one global linear scaling, 4 replicates).
 
 ## 5. Tasks to run (in this order of priority)
@@ -94,7 +106,8 @@ python3 experiments/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv -
 python3 experiments/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv \
    "f1=$OUT/sos4/f1_r*/out/final_results.txt" "f3=$OUT/sos4/f3_r*/out/final_results.txt"      # 56 pairs, 7 true
 ```
-Report: AUROC/AUPRC, TP/FP vs the paper (TP 7, FP 14), signs of the true edges, number of GREMA iterations (`ls <run>/out/tmp | grep ForStep`).
+Report: AUROC/AUPRC, TP/FP vs the paper (TP 7, FP 14), signs of the true edges, and the per-iteration table
+(`python3 experiments/scripts/iteration_table.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs $OUT/sos4/f1_r*/out/final_results.txt`, to be compared with the paper's Table 5 given in its docstring).
 Optional: `-t 8` when the server has the cores; 2 distinct UV doses are in the data (5 and 20 J/m^2) - could also be tried separately.
 
 **T2. IRMA with the built-in perturbation sets** (`-perturb 9 -noise 0.05` and `0.1`, `-f 1` and `-f 3`, switch-on/off, 5 runs each = 40 runs, 6 finished).
