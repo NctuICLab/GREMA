@@ -93,3 +93,18 @@ All experiments below keep switch-on and switch-off separate. An augmented data 
 GP voting improved switch-on (AUROC +0.04 to +0.08; the true edges G5->G1, G1->G2, G3->G5 got the most votes) but not switch-off, where the most voted edge was the false positive G3->G2. The seed-to-seed range was small for v1 (switch-on 0.745-0.771) and larger for v2 with noise (switch-on 0.69-0.92). Without using the gold standard, the agreement between the switch-on and switch-off vote scores (Spearman 0.22-0.40) was not clearly higher than for the original data (0.38), so we cannot say that augmentation makes the inference more reliable. The GP settings were fixed before running and the gold standard was not used to choose them, but the first GP settings (a fixed length-scale/noise range, not data-driven) gave switch-on AUROC 0.82 in a single run and switch-off 0.48; we did not repeat that setting with several seeds, and relaxing its range afterwards (switch-off 0.64) was done after seeing the scores, so that number is not a fair result.
 
 GP samples contain no new information about the network, only the uncertainty of the existing series, so they cannot replace additional experiments. The effect on real data is inconsistent across the two experiments.
+
+### After the code-review fixes
+
+A review of the code found and fixed several bugs (see the pull request): the derivative term of fitness 2/3/4 read an uninitialised value at the last time point, regulations given as `+`/`-` by the knowledge file were not always kept in the model, runs with equal fitness overwrote each other in the voting, and others. The numbers below were obtained after the fixes (HFODE, `-g 500`, `-c 0`, 10 repeated runs of the original data; mean over runs, AUROC / AUPRC over the possible directed edges, random AUROC 0.5 and AUPRC 0.4). The earlier tables in this README were produced before the fixes; the default fitness (`-f 1`) gives about the same results as before.
+
+| Data | Fitness | `CONFIDENCE_LEVEL` | `VOTE_SCORE` |
+|------|---------|--------------------|--------------|
+| switch-on | `-f 1` (default) | 0.705 / 0.596 | 0.781 / 0.754 |
+| switch-on | `-f 3` | 0.779 / 0.732 | 0.762 / 0.667 |
+| switch-off | `-f 1` (default) | 0.683 / 0.572 | 0.605 / 0.544 |
+| switch-off | `-f 3` | 0.708 / 0.660 | 0.609 / 0.574 |
+
+- `-f 3` (squared error of the derivative + squared error) was better than `-f 1` for switch-on (the standard deviation of the AUROC over runs is 0.04 for `-f 3`) and slightly better for switch-off (the difference is as large as the standard deviation). Before the fix `-f 3` was at the random level.
+- Adding the correlation term (`-c 1`, 5 runs) did not help: switch-on AUROC 0.646 (`-f 1`) and 0.675 (`-f 3`), switch-off 0.663 and 0.708, measured with `CONFIDENCE_LEVEL`.
+- GP augmentation (5 seeds x 10 trajectories, score = mean over the 50 trajectories) helped switch-on only for the v2 latent curve with `-f 1` and `VOTE_SCORE` (0.823 / 0.834); the first GP version and `-f 3` were not better than the original data. For switch-off every GP setting was worse than the original data (AUROC 0.50-0.60 against 0.68-0.71). The seed-to-seed standard deviation of the AUROC is 0.04-0.09 and there are only 8 true edges, so these differences are uncertain.
