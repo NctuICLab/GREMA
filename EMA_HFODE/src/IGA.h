@@ -70,7 +70,7 @@ private:
     double  pm2;
     int m_size1,m_size2,s_size;
     
-    int loc_possible;
+    int loc_possible;//number of free ('?') regulator genes
     int *SortIndex;
     int k_start,b_index,TransMax_index,degrade_index;
     int BestOne;
@@ -80,7 +80,11 @@ private:
     double *IntervalChangeByTemplate;
     double temperature,SA;
     int *LockMaskValue, *ChooseValue, *RangeValue;
-    int *Loc_tmp, *eachpop_loc, *sortloc;
+    //sortloc: the '?' (free) regulator genes, confloc: the confirmed '+'/'-' regulator genes
+    //(both ascending).  Slots 0..confirm-1 of every chromosome hold the confirmed genes
+    //(fixed, never relocated, mask bit always on); slots confirm..NO_REG-1 are free slots.
+    int *Loc_tmp, *eachpop_loc, *sortloc, *confloc;
+    int confirm;
     double **ModelParameters;
     //double  *BestValueEachGeneration;
     //unsigned int    *NumFitnessFunction;
@@ -89,7 +93,7 @@ private:
     //int runtime;
     int runnow;
     int Index;
-    int MaxMask;
+    unsigned long long RandomMask();//random non-empty slot mask, confirmed bits always set
     //double  **cal_profile;
     FILE *ptr_progress;
     //---------OA----------------//

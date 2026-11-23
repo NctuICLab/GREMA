@@ -25,7 +25,10 @@ Objfunction::Objfunction()
     //h_NumConnections = 0;
     time_interval = 0;
     runtime = 0;
-    min_fitness = XMAX;
+    last_cc = 0;
+    fitness_type = 0;
+    GeneIndex = 0;
+    cc_mode = 0;
     //printf("finish ini obj\n");
 }
 Objfunction::~Objfunction()
@@ -60,11 +63,12 @@ void Objfunction::init_obj(int time_step,int type,int run, int cc, int No_reg, i
     GeneParamValues = new double[NumGeneParam];
     //EVAL = new double[NO_POP];
     //memset(EVAL,0,NO_POP*sizeof(double));
+    memset(GeneParamValues, 0, NumGeneParam*sizeof(double));
     cal_profile = new double* [NumRuns];
     for(i=0;i<NumRuns;i++)
-        cal_profile[i] = new double[NumTrials];
+        cal_profile[i] = new double[NumTrials]();//value-initialised (zero)
     NumConnections = No_reg;
-    time_interval = time_step;
+    time_interval = (time_step < 1) ? 1 : time_step;//a step of 0 would never advance the time loops
     fitness_type = type;
     GeneIndex = index;
     //ModelParameters = new double* [runtime];
@@ -96,223 +100,138 @@ void Objfunction::printCurrentModelParameters(int PopIndex)
     }
     printf("\n");
 }
-void Objfunction::Decode(int PopIndex)
+//Decode one chromosome row into GeneParamValues
+//(b, TransMax, n(0..NumVars-1), k(0..NumVars-1), degrade).
+//Chromosome layout: loc(s)|n(s) for slot s=0..C-1, k(s) for s=0..C-1, b, TransMax, degrade, mask.
+//Slot s is active when bit s of the mask is set; a negative location -g means "gene g is
+//switched off" (n and k of g are 0).  Confirmed regulators are the first slots with the
+//mask bit always set, so they are never masked out or switched off.
+void Objfunction::DecodeRow(const double *row)
 {
-    int i,j;
-    int pp,index;
-    int MM, mask;
-    //printf("PopIndex=%d\n",PopIndex);
-    //printf("bi=%f\n",chrom[PopIndex][PARAM_NUM-4]);
-    //printf("degrade=%f\n",chrom[PopIndex][PARAM_NUM-3]);
-    //printf("Mask=%f\n",chrom[PopIndex][PARAM_NUM-2]);
+    int i, pp, s;
     for(i=0;i<NumGeneParam;i++){
         GeneParamValues[i] = 0;//initial
     }
-    //GeneParamValues is origin chromosome, Chromosome is the hybrid encode, MM is mask
-    GeneParamValues[0] = Chromosomes[PopIndex][PARAM_NUM-4];//bi
-    GeneParamValues[1] = Chromosomes[PopIndex][PARAM_NUM-3];//TransMax
-    GeneParamValues[NumGeneParam-1] = Chromosomes[PopIndex][PARAM_NUM-2];//degrade
-    //GeneParamValues[NumGeneParam-1] = Chromosomes[PopIndex][PARAM_NUM-1];//interval_time
-    MM = (int)Chromosomes[PopIndex][PARAM_NUM-1];//Mask
-    j=0;
-    index=0;
-    for(i=0;i<2*NumConnections-1;i+=2,j++)
+    GeneParamValues[0] = row[PARAM_NUM-4];//bi
+    GeneParamValues[1] = row[PARAM_NUM-3];//TransMax
+    GeneParamValues[NumGeneParam-1] = row[PARAM_NUM-2];//degrade
+    unsigned long long MM = (unsigned long long)row[PARAM_NUM-1];//Mask (64 bit, up to MAX_SLOTS slots)
+    for(s=0;s<NumConnections;s++)
     {
-        pp = (int)Chromosomes[PopIndex][i];
-        mask = 1<<j;
-        //printf("pp=%d\n",pp);
-        //PAUSE
+        pp = (int)row[2*s];
         if(pp >= 0)
         {
-            if(MM & mask)
+            if(pp >= NumTFs) continue;
+            if((MM >> s) & 1ULL)
             {
-                GeneParamValues[2+pp] = Chromosomes[PopIndex][i+1];//n
-                GeneParamValues[2+NumVars+pp] = Chromosomes[PopIndex][2*NumConnections+index];//k
-               // GeneParamValues[1+2*NumVars+pp] = Chromosomes[PopIndex][3*NumConnections+index];//k
+                GeneParamValues[2+pp] = row[2*s+1];//n
+                GeneParamValues[2+NumVars+pp] = row[2*NumConnections+s];//k
             }
         }else{
             if(pp == neg_zero)
                 pp = 0;
             else
                 pp = abs(pp);
+            if(pp >= NumTFs) continue;
             GeneParamValues[2+pp] = 0;
             GeneParamValues[2+NumVars+pp] = 0;
-            //GeneParamValues[1+2*NumVars+pp] = 0;
         }
-        index++;
     }
-    //printCurrentModelParameters(PopIndex);
-    //PAUSE;
+}
+void Objfunction::Decode(int PopIndex)
+{
+    DecodeRow(Chromosomes[PopIndex]);
 }
 double Objfunction::OAfitenss(double **OATable, int OATableIndex)
 {
-    int i,j;
-    int pp,index;
-    int MM, mask;
-    double value = 0;
-    for(i=0;i<NumGeneParam;i++){
-        GeneParamValues[i] = 0;//initial
-    }
-    
-    GeneParamValues[0] = OATable[OATableIndex][PARAM_NUM-4];//bi
-    GeneParamValues[1] = OATable[OATableIndex][PARAM_NUM-3];//TransMax
-    //GeneParamValues[NumGeneParam-2] = OATable[OATableIndex][PARAM_NUM-3];//degrade
-    GeneParamValues[NumGeneParam-1] = OATable[OATableIndex][PARAM_NUM-2];//degrade
-    MM = (int)OATable[OATableIndex][PARAM_NUM-1];//Mask
-    j=0;
-    index=0;
-    for(i=0;i<2*NumConnections-1;i+=2,j++)
-    {
-        pp=(int)OATable[OATableIndex][i];
-        mask = 1<<j;
-        //printf("pp=%d\n",pp);
-        //PAUSE
-        if(pp >= 0)
-        {
-            if(MM & mask)
-            {
-                GeneParamValues[2+pp] = OATable[OATableIndex][i+1];//n
-                GeneParamValues[2+NumVars+pp] = OATable[OATableIndex][2*NumConnections+index];//k
-                //GeneParamValues[1+2*NumVars+pp] = OATable[OATableIndex][3*NumConnections+index];//k
-            }
-        }else{
-            if(pp == neg_zero)
-                pp = 0;
-            else
-                pp = abs(pp);
-            GeneParamValues[2+pp] = 0;
-            GeneParamValues[2+NumVars+pp] = 0;
-            //GeneParamValues[1+2*NumVars+pp] = 0;
-        }
-        index++;
-    }
-    /*
-    for(j=0; j<NumGeneParam; j++)
-    {
-        printf("%f, ",GeneParamValues[j]);
-    }
-    printf("\n");
-    PAUSE;
-    */
-    value = fitnessValue(GeneParamValues);
-    //printf("fitness=%e\n",value);
-    return value;
+    DecodeRow(OATable[OATableIndex]);
+    return fitnessValue(GeneParamValues);
 }
 double Objfunction::fitness(int PopIndex)
 {
-    double value = 0;
     Decode(PopIndex);
-    //printCurrentModelParameters(genes,0);
-    value=fitnessValue(GeneParamValues);
+    return fitnessValue(GeneParamValues);
+}
+double Objfunction::EvaluateBest(int PopIndex)
+{
+    int r, j;
+    double value;
+    Decode(PopIndex);
+    value = fitnessValue(GeneParamValues, false);
+    for(r = 0; r < NumRuns; r++)
+        for(j = 0; j < NumTrials; j += time_interval)
+            cal_profile[r][j] = hill->CalValue(r, GeneIndex, j);
+    best_cc = last_cc;
     return value;
 }
-double Objfunction::fitnessValue(double *OneChrom)//(GeneParamValues)
+double Objfunction::fitnessValue(double *OneChrom, bool count_cost)//(GeneParamValues)
 {
-    int j, r, x;
-    //ptr;
-    //int i;
-    double now_cc;
+    int j, r, x, npts;
     double fitness, val,val2,val21,val22;
     double exp_avg,cal_avg,exp_total,cal_total,cal_diff,exp_diff,cal_diff_pow,exp_diff_pow,cal_exp_multi,c_c,c_c_fitness,add_t,exp_delta,interval_t;
-    double sum, totalSum, ErrorValue;
-    //double penalty;
-    //double *p = NULL;
+    double sum, totalSum, ErrorValue, denom, cc_sum;
     double temp;
     double max_cc = 1;
-    exp_diff_pow = 0;
-    cal_diff_pow = 0;
-    cal_exp_multi = 0;
-    //i = GeneIndex;
-    //printf("Numvar=%d\n",NumVars);
-    //printf("i=%d\n",i);
-    //PAUSE
-    val = OneChrom[0];
     //b
-    //printf("b=%f\t",val);
-    hill->SetCalb(GeneIndex, val);
+    hill->SetCalb(GeneIndex, OneChrom[0]);
     //TransMax
-    val = OneChrom[1];
-    //printf("TransMax=%f\t",val);
-    hill->SetCalTransMax(GeneIndex, val);
+    hill->SetCalTransMax(GeneIndex, OneChrom[1]);
     //Nij
-    //printf("Nij:");
     for(j = 0; j < NumTFs; j++)
-    {
-        val = OneChrom[j+2];
-        //printf("%f\t",val);
-        hill->SetCaln(GeneIndex, j, val);
-    }
-    /*
-    //Betaij
-    for(j = 0; j < NumTFs; j++)
-    {
-        val=OneChrom[1+NumVars+j];
-        hill->SetCalbeta(GeneIndex, j, val);
-    }
-     */
+        hill->SetCaln(GeneIndex, j, OneChrom[j+2]);
     //Kij
-    //printf("kij:");
     for(j = 0; j < NumTFs; j++)
-    {
-        val = OneChrom[2+NumVars+j];
-        //printf("%f\t",val);
-        hill->SetCalk(GeneIndex, j, val);
-    }
+        hill->SetCalk(GeneIndex, j, OneChrom[2+NumVars+j]);
     //degrade[i]
-    val = OneChrom[NumGeneParam-1];
-    hill->SetCaldegrade(GeneIndex, val);
-    //time interval[j]
-    //val=OneChrom[NumGeneParam-1];
-    //hill->SetDeltaT(val);
+    hill->SetCaldegrade(GeneIndex, OneChrom[NumGeneParam-1]);
     interval_t=hill->GetDeltaT();
-    //fitness = 0;
     
     hill->CalAllCalValues(GeneIndex); //calculate the estimate profile
     
     //Expression Error
     totalSum = 0;
+    cc_sum = 0;
     for(r = 0; r < NumRuns; r++)
     {
         sum = 0;
-        
-        
-        //i=hill->m_GeneIndex;
         exp_total=0;
         cal_total=0;
+        npts = 0;//number of time points that are summed (every time_interval-th one)
         for(x = 0; x < NumTrials; x += time_interval)
+        {
             exp_total += hill->ExpValue(r, GeneIndex, x);
-    
-        for(x = 0; x < NumTrials; x += time_interval)
             cal_total += hill->CalValue(r, GeneIndex, x);
-        
-        //printf("exp total:%f\n",exp_total);
-        //printf("cal total:%f\n",cal_total);
-        //PAUSE
+            npts++;
+        }
+        //the means must be divided by the number of summed points (not NumTrials)
+        exp_avg = exp_total/npts;
+        cal_avg = cal_total/npts;
         cal_exp_multi = 0;
         exp_diff_pow = 0;
         cal_diff_pow = 0;
         for(j = 0; j < NumTrials; j += time_interval)
         {
-            //val = s_system->ExpDeltaValue(r, k, j);//bechmark value
-            //printf("exp_delta=%f\n",val);
-            val2= hill->CalDeltaValue(r, GeneIndex, j);
-            //printf("cal_delta=%f\n",val2);
-            //PAUSE
             val21 = hill->ExpValue(r, GeneIndex, j);		//bechmark value
-            add_t = hill->ExpValue(r, GeneIndex, j+1);
-            exp_delta = (add_t-val21)/interval_t;
-            //printf("cal_exp_delta=%f\n",exp_delta);
-            //PAUSE
-            val22= hill->CalValue(r, GeneIndex, j);
+            val22 = hill->CalValue(r, GeneIndex, j);
             //--------cc--------------------------//
-            exp_avg = exp_total/NumTrials;
-            cal_avg = cal_total/NumTrials;
             exp_diff = val21 - exp_avg;
             cal_diff = val22 - cal_avg;
             cal_exp_multi += exp_diff*cal_diff;
             exp_diff_pow += pow(exp_diff,2);
             cal_diff_pow += pow(cal_diff,2);
             //--------cc---------------------------//
+            //The derivative term needs the next observed point.  At the last time point
+            //there is none (X[NumTrial] is never observed), so the derivative term is
+            //skipped there while the value-error term is still used.
+            bool has_next = (j + 1 < NumTrials);
+            temp = 0;
+            if(has_next && fitness_type >= 2)
+            {
+                val2 = hill->CalDeltaValue(r, GeneIndex, j);
+                add_t = hill->ExpValue(r, GeneIndex, j+1);
+                exp_delta = (add_t-val21)/interval_t;
+                temp = fabs(exp_delta - val2);
+            }
             ErrorValue=fabs(val21 - val22);
             switch(fitness_type)
             {
@@ -323,66 +242,42 @@ double Objfunction::fitnessValue(double *OneChrom)//(GeneParamValues)
                     sum += pow(ErrorValue,2);
                     break;
                 case 2:
-                    temp=fabs(exp_delta - val2);
                     sum += (pow(temp,2) + pow(1 - val22/val21,2));
                     break;
                 case 3:
-                    temp=fabs(exp_delta - val2);
                     sum += (pow(temp,2) + pow(ErrorValue,2));
                     break;
                 case 4:
-                    temp=fabs(exp_delta - val2);
                     sum += (pow(temp,2));
                     break;
             }
         }//end of Numtrial
         totalSum += sum;
+        //correlation coefficient of this replicate; undefined (0/0) for a constant
+        //profile, then cc = 0 (so the cc fitness term is 1)
+        denom = sqrt(cal_diff_pow)*sqrt(exp_diff_pow);
+        if(denom > 1e-12)
+            c_c = cal_exp_multi/denom;
+        else
+            c_c = 0;
+        if(c_c > 1){c_c = 1;}
+        if(c_c < -1){c_c = -1;}
+        if(c_c != c_c){c_c = 0;}
+        cc_sum += c_c;
     }//end of NumRuns
     
-    c_c = cal_exp_multi/(sqrt(cal_diff_pow)*sqrt(exp_diff_pow));
-    //printf("cc:%f\n",c_c);
-    //PAUSE
-    if(c_c > 1){c_c = 1;}
+    c_c = cc_sum/(double)NumRuns;//mean cc over all replicates
     c_c_fitness = max_cc - c_c;
     totalSum /= (double)NumRuns;
     if(cc_mode)
-    {
         fitness = totalSum + c_c_fitness;
-    }
-    else{
+    else
         fitness = totalSum;
-    }
-    now_cc = c_c;
-    function_cost ++;
-    if(fitness<min_fitness)
-    {
-        for(r = 0; r < NumRuns; r++)
-        {
-            
-            //i=hill->m_GeneIndex;
-            for(j = 0; j < NumTrials; j += time_interval)
-            {
-                
-                cal_profile[r][j]=hill->CalValue(r, GeneIndex, j);
-                /*
-                 switch(FUNC)
-                 {
-                 case 0:
-                 tmp_sum += pow(1-cal_profile[j]/exp_profile[j],2);
-                 break;
-                 case 1:
-                 tmp_sum += pow(cal_profile[j] - exp_profile[j],2);
-                 break;
-                 }
-                 */
-            }
-        }//end of NumRuns
-        min_fitness = fitness;
-        //printf("min fitness=%e\n",min_fitness);
-    }
-
-    if(now_cc>=best_cc){best_cc = now_cc;}
-    
+    //keep every fitness finite (NaN/inf -> worst) so all GA comparisons are well defined
+    if(!(fitness < WORST_FITNESS))
+        fitness = WORST_FITNESS;
+    last_cc = c_c;
+    if(count_cost)
+        function_cost ++;
     return fitness;
 }
-

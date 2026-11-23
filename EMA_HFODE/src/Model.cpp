@@ -13,7 +13,10 @@ Model::Model()//initialization
 	IsAddOriNoise = false;
 	OriNoiseDegree = 0;
 	isSimulated = false;
-    //m_GeneIndex = 0;
+    NumTF = -1;//-1: not given in the file, defaults to NumVar after reading
+    //Nochange is the early-stop threshold (generations without improvement).  Default: never stop early.
+    Nochange = INT_MAX/2;
+    m_GeneIndex = 0;
     //CheckIndex = 0;
 	//experiment
     expb = NULL;
@@ -111,7 +114,7 @@ Model::~Model()
 	//experiment
     if(expValues != NULL)
     {
-        for(i = 0; i < NumRun; i++)
+        for(i = 0; i < NumRun+NumPerturb; i++)
         {
             for(j = 0; j < NumVar; j++)
             {
@@ -128,7 +131,7 @@ Model::~Model()
 	//calculated
 	if(calValues != NULL)
 	{
-		for(i = 0; i < NumRun; i++)
+		for(i = 0; i < NumRun+NumPerturb; i++)
 		{
 			for(j = 0; j < NumVar; j++)
 			{
@@ -187,8 +190,12 @@ void Model::InitializeExp()
         
         for(j = 0; j < NumVar; j++)
         {
+            //NumTrial+1 entries (the Euler step writes X[NumTrial]); zero-initialised so
+            //that no entry is ever read uninitialised
             expValues[i].X[j] = new double[NumTrial+1];
             expValues[i].dX[j] = new double[NumTrial+1];
+            memset(expValues[i].X[j], 0, (NumTrial+1)*sizeof(double));
+            memset(expValues[i].dX[j], 0, (NumTrial+1)*sizeof(double));
             //expValues[i].fitness[j] = new double[NumTrial+1];
         }
     }
@@ -234,6 +241,8 @@ void Model::InitializeCal()
         {
             calValues[i].X[j] = new double[NumTrial+1];
             calValues[i].dX[j] = new double[NumTrial+1];
+            memset(calValues[i].X[j], 0, (NumTrial+1)*sizeof(double));
+            memset(calValues[i].dX[j], 0, (NumTrial+1)*sizeof(double));
             //calValues[i].fitness[j] = new double[NumTrial+1];
         }
     }
@@ -260,12 +269,43 @@ double Model::AddGaussianNoise(double stdev, double mean)
     return x;
 }
 
+//Read one line of any length (no fixed buffer: a data row of a large network is
+//longer than BUF_SIZE).  The returned buffer is reused by the next call; NULL at EOF.
+static char* ReadLine(FILE* fp)
+{
+	static char* buf = NULL;
+	static size_t cap = 0;
+	if(getline(&buf, &cap, fp) < 0)
+		return NULL;
+	return buf;
+}
+//Abort with a message if a keyword or data row has fewer fields than required
+static char* NeedTok(char* token, const char* what)
+{
+	if(token == NULL)
+	{
+		fprintf(stderr, "Error input data file: missing value for %s\n", what);
+		exit(1);
+	}
+	return token;
+}
+static char* NeedLine(FILE* fp, const char* what)
+{
+	char* l = ReadLine(fp);
+	if(l == NULL)
+	{
+		fprintf(stderr, "Error input data file: unexpected end of file while reading %s\n", what);
+		exit(1);
+	}
+	return l;
+}
+
 int Model::ReadInitFromFile(char* filename)
 {
 	int rtn = 1;
 	int i, j, r, run, t;
 	FILE* fp;
-	char line[BUF_SIZE];
+	char* line;
 	char* token;
 	double** X;
 	double tmp;
@@ -276,7 +316,7 @@ int Model::ReadInitFromFile(char* filename)
 		return -1;
 	}
     
-	while(fgets(line, BUF_SIZE-1, fp))
+	while((line = ReadLine(fp)) != NULL)
 	{
 		if(line[0] == '#') //skip comment line
 			continue;//leave while loop
@@ -292,31 +332,31 @@ int Model::ReadInitFromFile(char* filename)
 		if(strcmp(token, "num_var") == 0)
 		{
 			token = strtok(NULL, "\t\r\n #");
-			NumVar = atoi(token);
+			NumVar = atoi(NeedTok(token,"num_var"));
             //printf("NumVar=%d\n",NumVar);
         }
         else if(strcmp(token, "num_tf") == 0)
 		{
 			token = strtok(NULL, "\t\r\n #");
-			NumTF = atoi(token);
+			NumTF = atoi(NeedTok(token,"num_tf"));
             //printf("NumTF=%d\n",NumTF);
 		}
 		else if(strcmp(token, "num_run") == 0)
 		{
 			token = strtok(NULL, "\t\r\n #");
-			NumRun = atoi(token);
+			NumRun = atoi(NeedTok(token,"num_run"));
             //printf("NumRun=%d\n",NumRun);
 		}
 		else if(strcmp(token, "num_trial") == 0)
 		{
 			token = strtok(NULL, "\t\r\n #");
-			NumTrial = atoi(token);
+			NumTrial = atoi(NeedTok(token,"num_trial"));
             //printf("NumTrial=%d\n",NumTrial);
 		}
 		else if(strcmp(token, "delta_t") == 0)
 		{
 			token = strtok(NULL, "\t\r\n #");
-			delta_t = atof(token);
+			delta_t = atof(NeedTok(token,"delta_t"));
             //printf("delta_t=%f\n",delta_t);
             //PAUSE
 		}
@@ -331,30 +371,30 @@ int Model::ReadInitFromFile(char* filename)
         else if(strcmp(token, "nochange") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            Nochange = atoi(token);
+            Nochange = atoi(NeedTok(token,"nochange"));
             //printf("Nochange=%d\n",Nochange);
         }
         else if(strcmp(token, "b_up") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            b_up = atoi(token);
+            b_up = atof(NeedTok(token,"b_up"));
             //printf("b_up=%f\n",b_up);
         }
         else if(strcmp(token, "b_down") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            b_down = atoi(token);
+            b_down = atof(NeedTok(token,"b_down"));
             //printf("b_down=%f\n",b_down);
         }
         else if(strcmp(token, "transMax_up") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            TransMax_up = atoi(token);
+            TransMax_up = atof(NeedTok(token,"TransMax_up"));
         }
         else if(strcmp(token, "transMax_down") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            TransMax_down = atoi(token);
+            TransMax_down = atof(NeedTok(token,"TransMax_down"));
         }
         /*
         else if(strcmp(token, "beta_up") == 0)
@@ -373,37 +413,37 @@ int Model::ReadInitFromFile(char* filename)
         else if(strcmp(token, "n_up") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            n_up = atoi(token);
+            n_up = atof(NeedTok(token,"n_up"));
             //printf("n_up=%d\n",n_up);
         }
         else if(strcmp(token, "n_down") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            n_down = atoi(token);
+            n_down = atof(NeedTok(token,"n_down"));
             //printf("n_downn=%d\n",n_down);
         }
         else if(strcmp(token, "k_up") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            k_up = atoi(token);
+            k_up = atof(NeedTok(token,"k_up"));
             //printf("k_up=%f\n",k_up);
         }
         else if(strcmp(token, "k_down") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            k_down = atoi(token);
+            k_down = atof(NeedTok(token,"k_down"));
             //printf("k_down=%f\n",k_down);
         }
         else if(strcmp(token, "degrade_up") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            degrade_up = atoi(token);
+            degrade_up = atof(NeedTok(token,"degrade_up"));
             //printf("degrade_up=%f\n",degrade_up);
         }
         else if(strcmp(token, "degrade_down") == 0)
         {
             token = strtok(NULL, "\t\r\n #");
-            degrade_down = atoi(token);
+            degrade_down = atof(NeedTok(token,"degrade_down"));
             //printf("degrade_down=%f\n",degrade_down);
             //PAUSE
         }
@@ -423,7 +463,7 @@ int Model::ReadInitFromFile(char* filename)
          */
 		else if(strcmp(token, "add_perturbation") == 0)
 		{
-			token = strtok(NULL, "\t\r\n #");
+			token = NeedTok(strtok(NULL, "\t\r\n #"), "add_perturbation");
 			//for(i = 0; i < (int)strlen(token); i++)
 			//	token[i] = tolower(token[i]);
             
@@ -432,10 +472,10 @@ int Model::ReadInitFromFile(char* filename)
 				DoPerturb = true;
 				
 				token = strtok(NULL, "\t\r\n #");
-				NumPerturb = atoi(token);
+				NumPerturb = atoi(NeedTok(token, "add_perturbation"));
                 
 				token = strtok(NULL, "\t\r\n #");
-				NoiseDegree = atof(token);
+				NoiseDegree = atof(NeedTok(token, "add_perturbation"));
 			}
 			else
 			{
@@ -446,13 +486,13 @@ int Model::ReadInitFromFile(char* filename)
 		}
 		else if(strcmp(token, "ori_noise") == 0)
 		{
-			token = strtok(NULL, "\t\r\n #");
+			token = NeedTok(strtok(NULL, "\t\r\n #"), "ori_noise");
 			if(strcmp(token, "yes") == 0)
 			{
 				IsAddOriNoise = true;
                 
 				token = strtok(NULL, "\t\r\n #");
-				OriNoiseDegree = atof(token);
+				OriNoiseDegree = atof(NeedTok(token, "ori_noise"));
 			}
 			else
 			{
@@ -473,7 +513,7 @@ int Model::ReadInitFromFile(char* filename)
 			else
 			{
 				fprintf(stderr, "Error input data file, initalization of data failed!!!\n");
-				exit(-1);
+				exit(1);
 			}
             
 			//allocate memory space
@@ -484,11 +524,11 @@ int Model::ReadInitFromFile(char* filename)
 			//Read init. data
 			for(i = 0; i < NumRun; i++)
 			{
-				fgets(line, BUF_SIZE - 1, fp);
+				line = NeedLine(fp, "init_data");
                 token = strtok(line, " \t\r\n");
 				for(j = 0; j < NumVar; j++)
 				{
-					X[i][j] = atof(token);
+					X[i][j] = atof(NeedTok(token, "init_data"));
 					token = strtok(NULL, " \t\r\n");
 				}
 			}
@@ -513,25 +553,25 @@ int Model::ReadInitFromFile(char* filename)
 			else
 			{
 				fprintf(stderr, "Error input data file, initalization of parameters failed!!!\n");
-				exit(-1);
+				exit(1);
 			}
             
 			for(i = 0; i < NumVar; i++)
 			{
-				fgets(line, BUF_SIZE-1, fp);
+				line = NeedLine(fp, "init_parameters");
                 //b
                 token = strtok(line, "\n\r\t #");
-                expb[i] = atof(token);
+                expb[i] = atof(NeedTok(token, "init_parameters"));
                 //printf("expb[%d]=%f\n",i,expb[i]);
                 token = strtok(NULL, "\n\r\t #");
-                expTransMax[i] = atof(token);
+                expTransMax[i] = atof(NeedTok(token, "init_parameters"));
                 //printf("TransMax[%d] = %f\n",i, expTransMax[i]);
                 
                 //Nij
                 for(j = 0; j < NumVar; j++)
                 {
                     token = strtok(NULL, "\n\r\t #");
-                    exp_n[i][j] = atoi(token);
+                    exp_n[i][j] = atof(NeedTok(token, "init_parameters"));
                     //printf("exp_n[%d][%d]=%f\n",i,j,exp_n[i][j]);
                 }
                 
@@ -548,12 +588,12 @@ int Model::ReadInitFromFile(char* filename)
                 for(j = 0; j < NumVar; j++)
                 {
                     token = strtok(NULL, "\n\r\t #");
-                    exp_k[i][j] = atof(token);
+                    exp_k[i][j] = atof(NeedTok(token, "init_parameters"));
                     //printf("exp_k[%d][%d]=%f\n",i,j,exp_k[i][j]);
                 }
                 //degrade
                 token = strtok(NULL, "\n\r\t #");
-                expdegrade[i] = atof(token);
+                expdegrade[i] = atof(NeedTok(token, "init_parameters"));
                 //printf("expdegrade[%d]=%f\n",i,expdegrade[i]);
             }
 			isSimulated = true;
@@ -574,21 +614,21 @@ int Model::ReadInitFromFile(char* filename)
 			else
 			{
 				fprintf(stderr, "Error input data file, initalization of parameters failed!!!\n");
-				exit(-1);
+				exit(1);
 			}
 			//for each run
 			for(r = 0; r < NumRun; r++)
 			{
-				fgets(line, BUF_SIZE-1, fp);
+				line = NeedLine(fp, "list_data");
 				token = strtok(line, "\n\r\t #"); //id of r-th run
-				run = atoi(token);
+				run = atoi(NeedTok(token, "list_data run id"));
 				//for each variable
 				for(i = 0; i < NumVar; i++)
 				{
 					
-                    fgets(line, BUF_SIZE-1, fp);
+                    line = NeedLine(fp, "list_data");
                     token = strtok(line, "\n\r\t #"); //exprssion value at time 0
-                    tmp = atof(token);
+                    tmp = atof(NeedTok(token, "list_data (expression row)"));
 					if(tmp == 0)
                     {
                         expValues[r].X[i][0] = XMIN;
@@ -603,7 +643,7 @@ int Model::ReadInitFromFile(char* filename)
 					for(j = 1; j < NumTrial; j++)
 					{
 						token = strtok(NULL, "\n\r\t #"); //exprssion value at time j
-                        tmp = atof(token);
+                        tmp = atof(NeedTok(token, "list_data (row has fewer values than num_trial)"));
                         if(tmp == 0)
                         {
                             expValues[r].X[i][j] = XMIN;
@@ -645,6 +685,13 @@ int Model::ReadInitFromFile(char* filename)
 			continue;
 	}
 	fclose(fp);
+    if(NumTF < 0)
+        NumTF = NumVar;//num_tf not given: every variable is a candidate regulator
+    if(NumTF > NumVar)
+    {
+        fprintf(stderr, "Error input data file: num_tf (%d) is larger than num_var (%d)\n", NumTF, NumVar);
+        return -1;
+    }
     
 	return rtn;
 }
@@ -818,7 +865,7 @@ void Model::CalRunExpValues(int nRun)//produce simulated profile
     if(isSetInitExpVal[nRun] != true)
     {
         fprintf(stderr, "Experiment Run %d is not initialized!\n", nRun);
-        exit(0);
+        exit(1);
     }
     
     
@@ -1119,7 +1166,7 @@ void Model::CalRunVarCalValues_Divide(int nRun, int GeneIndex)// calculate the f
     if(isSetInitCalVal[nRun] != true)
     {
         fprintf(stderr, "Calculated_Divide Run %d is not initialized!\n", nRun);
-        exit(0);
+        exit(1);
     }
     
     
@@ -1183,7 +1230,7 @@ void Model::SetCalb(int i, double val)
     else
     {
        fprintf(stderr, "i:%d, Error: SetCalb out of index range!!!\n",i);
-        exit(0);
+        exit(1);
     }
     
 }
@@ -1195,7 +1242,7 @@ void Model::SetCaldegrade(int i, double val)
     else
     {
         fprintf(stderr, "i:%d, Error: SetCaldegrade out of index range!!!\n",i);
-        exit(0);
+        exit(1);
     }
     
 }
@@ -1206,7 +1253,7 @@ void Model::SetCalTransMax(int i, double val)
     else
     {
         fprintf(stderr, "i:%d, Error: SetCalTransMax out of index range!!!\n",i);
-        exit(0);
+        exit(1);
     }
 }
 /*
@@ -1217,7 +1264,7 @@ void Model::SetCalbeta(int i, int j, double val)
     else
     {
         fprintf(stderr, "i:%d,j:%d, Error: SetCalbeta out of index range!!!\n",i,j);
-        exit(0);
+        exit(1);
     }
     
 }
@@ -1229,7 +1276,7 @@ void Model::SetCaln(int i, int j, double val)
     else
     {
         fprintf(stderr, "i:%d,j:%d, Error: SetCaln out of index range!!!\n",i,j);
-        exit(0);
+        exit(1);
     }
     
 }
@@ -1240,7 +1287,7 @@ void Model::SetCalk(int i, int j, double val)
     else
     {
         fprintf(stderr, "i:%d,j:%d,Error: SetCalk out of index range!!!\n",i,j);
-        exit(0);
+        exit(1);
     }
         
     
