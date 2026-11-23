@@ -46,3 +46,50 @@ python3 evaluation/dream4_evaluate.py -d input/IRMA/IRMA_GoldStandard.tsv \
 | switch-on | 1000 | 4.0 +- 0.0 | 1.0 +- 0.0 | 24 s |
 
 Each run already performs the 30-run voting internally, so repeating the whole run is not required. About half of the true edges are missed, and the missed and false edges are the same in every run, so the limit is the information in the data (1 replicate, 16-21 time points), not randomness.
+
+## Experiments on IRMA
+
+All numbers below are from HFODE with `-g 500` unless stated otherwise, evaluated against `IRMA_GoldStandard.tsv` (8 true edges among 25 possible directed edges; random AUROC 0.5, AUPRC 0.4). The scripts used for the experiments below (simulation, augmentation, evaluation) are not included in this repository. There are only 2 data sets and 8 true edges, so differences of about 0.05 in AUROC should not be over-interpreted.
+
+### HFODE vs S-system
+
+S-system (`-m s-system`, 3 runs) was clearly worse and 5-8 times slower (about 100-120 s):
+
+| Data | Model | TP | FP | AUROC | AUPRC |
+|------|-------|----|----|-------|-------|
+| switch-on | HFODE | 4 | 1 | 0.708 | 0.600 |
+| switch-on | S-system | 1-2 | 6-7 | 0.307 | 0.365 |
+| switch-off | HFODE | 4 | 2 | 0.677 | 0.565 |
+| switch-off | S-system | 4 | 4-5 | 0.568 | 0.451 |
+
+For `-g 100/500/1000` HFODE had AUROC 0.74/0.71/0.71 and AUPRC 0.66/0.60/0.60 (switch-on), and AUROC 0.62/0.68/0.69 and AUPRC 0.52/0.57/0.58 (switch-off). Scores are `CONFIDENCE_LEVEL` for an edge and 0 for a non-edge; using the binary prediction instead changes AUROC by at most 0.04.
+
+### Is the limited accuracy caused by the model or by the amount of data?
+
+Data were simulated with HFODE itself on the IRMA topology (8 edges and signs, 5 genes, 16 time points, 5% noise, random initial values for each replicate, 3 random parameter sets), so the model is exactly right:
+
+| Replicates | TP | FP | AUROC | AUPRC |
+|------------|----|----|-------|-------|
+| 1 | 3.0 | 2.7 | 0.58 | 0.51 |
+| 5 | 4.7 | 0.3 | 0.78 | 0.71 |
+| 10 | 5.0 | 0.3 | 0.81 | 0.77 |
+
+Even with a correct model and no noise, one replicate gives about the same accuracy as on the real IRMA data. Independent replicates (different initial states) help the most; going from 5 to 10 gives little extra, and about 3 of the 8 true edges were still missed. So the main limit is the amount of data, not the model. The noise level had almost no effect (1 replicate without noise: TP 3.0, FP 2.7, AUROC 0.57).
+
+### Can the data be augmented?
+
+All experiments below keep switch-on and switch-off separate. An augmented data set is the original series plus extra series, or extra series only, and GREMA is run on each.
+
+- **Simulating extra replicates from a fitted HFODE** (parameters taken from a GREMA run on the same data) made the results **worse** (switch-on AUROC 0.47, switch-off 0.48-0.54; 4 or 9 extra replicates). The simulated data only repeat what the fitted model already says, including its false edges.
+- **Gaussian-process (GP) sampling and voting.** Each gene is fitted with a GP, 20 trajectories are sampled (same number of time points, 1 replicate each), GREMA is run on each trajectory, and every edge is scored by the fraction of the 20 runs in which it was predicted. Five random seeds per setting (mean over seeds; the scores below use the vote fraction, original = binary prediction of a single run):
+
+| Method | switch-on AUROC | switch-on AUPRC | switch-off AUROC | switch-off AUPRC |
+|--------|-----------------|-----------------|------------------|------------------|
+| Original data, single run | 0.708 | 0.600 | 0.667 | 0.533 |
+| GP v1: kernel, length scale and noise chosen by leave-one-out (LOO) prediction | 0.752 | 0.703 | 0.545 | 0.503 |
+| GP v2, latent curve only (hyperparameters sampled from a grid weighted by marginal likelihood) | 0.782 | 0.774 | 0.565 | 0.540 |
+| GP v2, latent curve + observation noise | 0.786 | 0.740 | 0.575 | 0.541 |
+
+GP voting improved switch-on (AUROC +0.04 to +0.08; the true edges G5->G1, G1->G2, G3->G5 got the most votes) but not switch-off, where the most voted edge was the false positive G3->G2. The seed-to-seed range was small for v1 (switch-on 0.745-0.771) and larger for v2 with noise (switch-on 0.69-0.92). Without using the gold standard, the agreement between the switch-on and switch-off vote scores (Spearman 0.22-0.40) was not clearly higher than for the original data (0.38), so we cannot say that augmentation makes the inference more reliable. The GP settings were fixed before running and the gold standard was not used to choose them, but the first GP settings (a fixed length-scale/noise range, not data-driven) gave switch-on AUROC 0.82 in a single run and switch-off 0.48; we did not repeat that setting with several seeds, and relaxing its range afterwards (switch-off 0.64) was done after seeing the scores, so that number is not a fair result.
+
+GP samples contain no new information about the network, only the uncertainty of the existing series, so they cannot replace additional experiments. The effect on real data is inconsistent across the two experiments.
