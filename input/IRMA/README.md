@@ -70,11 +70,11 @@ Data were simulated with HFODE itself on the IRMA topology (8 edges and signs, 5
 
 | Replicates | TP | FP | AUROC | AUPRC |
 |------------|----|----|-------|-------|
-| 1 (without noise: TP 3.0, FP 2.7, AUROC 0.57) | 3.0 | 2.7 | 0.58 | 0.51 |
+| 1 | 3.0 | 2.7 | 0.58 | 0.51 |
 | 5 | 4.7 | 0.3 | 0.78 | 0.71 |
 | 10 | 5.0 | 0.3 | 0.81 | 0.77 |
 
-Even with a correct model and no noise, one replicate gives about the same accuracy as on the real IRMA data. Independent replicates (different initial states) help the most; going from 5 to 10 gives little extra, and about 3 of the 8 true edges were still missed. So the main limit is the amount of data, not the model. The noise level had almost no effect.
+Even with a correct model and no noise, one replicate gives about the same accuracy as on the real IRMA data. Independent replicates (different initial states) help the most; going from 5 to 10 gives little extra, and about 3 of the 8 true edges were still missed. So the main limit is the amount of data, not the model. The noise level had almost no effect (1 replicate without noise: TP 3.0, FP 2.7, AUROC 0.57).
 
 ### Can the data be augmented?
 
