@@ -16,6 +16,7 @@ IGA::IGA(COrthogonalArray *OAtable,S_System_Divide *ssystem,Knowledge *know,Objf
     NO_g =0;
     NO_h =0;
     PARAM_NUM =0;
+    NumGeneParam = 0;
     NumCrossover =0;
     same_interval=false;
     m_size1 = 0;
@@ -30,12 +31,16 @@ IGA::IGA(COrthogonalArray *OAtable,S_System_Divide *ssystem,Knowledge *know,Objf
     alpha_index = 0;
     beta_index = 0;
     h_start = 0;
+    gloc_possible = 0;
+    hloc_possible = 0;
     temperature = 0;
     SA = 0;
     cx1 = 0;
     cx2 = 0;
     GeneIndex = 0;
+    runtime = 0;
     runnow = 0;
+    ptr1 = NULL;
     target = NULL;
     Chromosomes = NULL;
     SortIndex = NULL;
@@ -43,8 +48,6 @@ IGA::IGA(COrthogonalArray *OAtable,S_System_Divide *ssystem,Knowledge *know,Objf
     Upper_bound = NULL;
     Interval = NULL;
     IntervalChangeByTemplate = NULL;
-    Loc_tmp = NULL;
-    eachpop_loc = NULL;
     sortloc = NULL;
     BestValueEachGeneration = NULL;
     
@@ -62,18 +65,6 @@ IGA::~IGA()
     if(Upper_bound){delete [] Upper_bound;}
     if(Interval){delete [] Interval;}
     if(IntervalChangeByTemplate){delete [] IntervalChangeByTemplate;}
-    if(Loc_tmp)
-    {
-        for(i=0;i<2;i++)
-            delete [] Loc_tmp[i];
-        delete [] Loc_tmp;
-    }
-    if(eachpop_loc)
-    {
-        for(i=0;i<2;i++)
-            delete [] eachpop_loc[i];
-        delete [] eachpop_loc;
-    }
     if(sortloc)
     {
         for(i=0;i<2;i++)
@@ -85,7 +76,32 @@ IGA::~IGA()
     
         
     if(DoMutationIndex){delete [] DoMutationIndex;}
-    fclose(ptr1);
+    if(ptr1){fclose(ptr1);}
+}
+//--------------------------------------------------------------------------------------------
+//fitness a is better than fitness b (smaller); NaN is the worst
+static inline bool Better(double a,double b)
+{
+    if(a != a) return false;
+    if(b != b) return true;
+    return a < b;
+}
+//a bug somewhere else must not look like a successful run with an empty output
+static void iga_fatal(const char *where,int run,int gen)
+{
+    fprintf(stderr,"IGA internal error (%s): the best fitness got worse, run %d generation %d\n",where,run,gen);
+    exit(1);
+}
+int IGA::LocGene(double code)
+{
+    int c = (int)code;
+    if(c == neg_zero) return 0;
+    return (c < 0) ? -c : c;
+}
+double IGA::LocCode(int gene,bool on)
+{
+    if(on) return gene;
+    return (gene == 0) ? neg_zero : -gene;
 }
 void IGA::set_parameter(int index,int iteration,int run)
 {
@@ -94,12 +110,31 @@ void IGA::set_parameter(int index,int iteration,int run)
     ps = DEFAULT_PS;
     pm1 = DEFAULT_PM1;
     pm2 = DEFAULT_PM2;
+    if(NO_POP < 2)
+    {
+        fprintf(stderr,"population size must be at least 2\n");
+        exit(1);
+    }
+    if(NO_GEN < 1)
+    {
+        fprintf(stderr,"number of generations must be at least 1\n");
+        exit(1);
+    }
+    if(NumVars >= -(neg_zero))
+    {
+        fprintf(stderr,"too many genes (%d)\n",NumVars);
+        exit(1);
+    }
     PARAM_NUM = 2*NO_g + 2*NO_h + 3;
     NumGeneParam=2*NumVars + 3;//1 gene(3:alpha + beta + delta_t)
     alpha_index=2*NO_g + 2*NO_h;
     beta_index=2*NO_g + 2*NO_h + 1;
     h_start=2*NO_g;
+    //the OA crossover works on pairs of parents: the number of crossovers must be even
+    //(it was (int)(0.8*NO_POP), odd for e.g. -P 12, and then read target[NumCrossover])
     NumCrossover = (int)((float)pc*NO_POP);
+    NumCrossover -= NumCrossover % 2;
+    if(NumCrossover < 2){NumCrossover = 2;}
     m_size1 = (int)(NO_POP * PARAM_NUM * pm1);
     m_size2=(int)(NO_POP * PARAM_NUM * pm2);
     s_size =(int)((float)ps * NO_POP);
@@ -110,6 +145,11 @@ void IGA::set_parameter(int index,int iteration,int run)
     hloc_possible = knowledge->get_hPossible();
     sprintf(str1,"progress%d_step%d.txt",GeneIndex,iteration);
     ptr1=fopen(str1,"w");
+    if(ptr1 == NULL)
+    {
+        fprintf(stderr,"cannot write %s\n",str1);
+        exit(1);
+    }
     if(Debug_mode)
     {
         printf("pc=%f\n",pc);
@@ -122,33 +162,34 @@ void IGA::set_parameter(int index,int iteration,int run)
 }
 void IGA::initialIGA()
 {
-    int i;
-    target = new unsigned int[NumCrossover];
-    Chromosomes = new double[NO_POP * PARAM_NUM];
-    SortIndex = new int[NO_POP];
-    Lower_bound = new double[PARAM_NUM];
-    Upper_bound = new double[PARAM_NUM];
-    Interval = new double[PARAM_NUM];
-    IntervalChangeByTemplate = new double[PARAM_NUM];
-    
-    Loc_tmp=new int* [2];//initial selected location
-    eachpop_loc=new int* [2];
-    for(i=0;i<2;i++)
+    int w;
+    //every confirmed regulator needs its own slot
+    if(NO_g < knowledge->get_gConfirm() || NO_h < knowledge->get_hConfirm() || NO_g > gloc_possible || NO_h > hloc_possible)
     {
-        Loc_tmp[i] = new int[NumVars];
-        eachpop_loc[i] = new int[NumVars];
+        fprintf(stderr,"inconsistent number of regulators (g: %d slots, %d confirmed, %d possible; h: %d slots, %d confirmed, %d possible)\n",
+                NO_g,knowledge->get_gConfirm(),gloc_possible,NO_h,knowledge->get_hConfirm(),hloc_possible);
+        exit(1);
     }
+    target = new unsigned int[NumCrossover];
+    Chromosomes = new double[NO_POP * PARAM_NUM]();
+    SortIndex = new int[NO_POP];
+    Lower_bound = new double[PARAM_NUM]();
+    Upper_bound = new double[PARAM_NUM]();
+    Interval = new double[PARAM_NUM]();
+    IntervalChangeByTemplate = new double[PARAM_NUM]();
+    
     sortloc=new int* [2];
-    sortloc[0] = new int[gloc_possible];
-    sortloc[1] = new int[hloc_possible];
-    BestValueEachGeneration = new double[NO_GEN];
-    memset(BestValueEachGeneration,0,NO_GEN);
-    NumFitnessFunction = new unsigned int[NO_GEN];
-    memset(NumFitnessFunction,0,NO_GEN);
+    sortloc[0] = new int[gloc_possible + 1];
+    sortloc[1] = new int[hloc_possible + 1];
+    for(w=0;w<2;w++)
+        memset(sortloc[w],0,(PossibleCount(w)+1)*sizeof(int));
+    BestValueEachGeneration = new double[NO_GEN]();//NO_GEN generations are run, see run()
+    NumFitnessFunction = new unsigned int[NO_GEN]();
     //printf("run=%d\n",ExecutionRuns);
     //PAUSE
-    DoMutationIndex =   new int[PARAM_NUM];
+    DoMutationIndex =   new int[PARAM_NUM]();
     OA->Create(PARAM_NUM,Chromosomes,NumVars+1);
+    OA->m_Repair = [this](double *c){RepairLocations(c);};
     //OA->DisplayOATable();
 }
 void IGA::RangeVariable()
@@ -202,6 +243,18 @@ void IGA::RangeVariable()
     Interval[i]    = Upper_bound[i]-Lower_bound[i];
     if(Interval[i] == 0){same_interval = true;}
 }
+//cc of the current best individual (does not change function_cost)
+double IGA::BestCC()
+{
+    unsigned int cost = obj->function_cost;
+    obj->fitness(Chromosomes+BestOne*PARAM_NUM);
+    obj->function_cost = cost;
+    return obj->last_cc;
+}
+//One execution run: NO_GEN generations (Evaluate, Selection, Crossover, Mutation).
+//Early stop: nochange (config file, Num_nochange) is the number of consecutive generations without
+//any change of the best fitness after which the run stops; nochange <= 0 switches it off.
+//(It used to be `fitness_same <= nochange` together with NO_GEN+1 generations.)
 void IGA::run(int run)
 {
     
@@ -214,47 +267,39 @@ void IGA::run(int run)
     double difference=100;
     double *p;
     int print_no = NO_GEN/10;
+    if(print_no < 1){print_no = 1;}//-G < 10
     step = obj->get_time_interval();
     //printf("step:%d\n",step);
     //PAUSE
+    BestOne = 0;
     initialpop();
     NowGeneration=0;
     fitness_same=0;
-    while((fitness_same <= Num_nochange) && (NowGeneration <= NO_GEN))
+    while((Num_nochange <= 0 || fitness_same < Num_nochange) && (NowGeneration < NO_GEN))
     {
         Evaluate();
         BestValueEachGeneration[NowGeneration] = obj->EVAL[BestOne];
         //printf("Evaluate\tBest=%d\t%e\n",BestOne,obj->EVAL[BestOne]);
-        if(NowGeneration>0 && BestValueEachGeneration[NowGeneration-1]< obj->EVAL[BestOne])
+        if(NowGeneration>0 && Better(BestValueEachGeneration[NowGeneration-1], obj->EVAL[BestOne]))
         {
-            printf("Bestvalue[%d]=%e\n",NowGeneration-1,BestValueEachGeneration[NowGeneration-1]);
-            printf("EVAL[%d]:%e\n",BestOne,obj->EVAL[BestOne]);
-            fprintf(stderr,"Evaluate error...........");
-            exit(0);
+            fprintf(stderr,"Bestvalue[%d]=%e\n",NowGeneration-1,BestValueEachGeneration[NowGeneration-1]);
+            fprintf(stderr,"EVAL[%d]:%e\n",BestOne,obj->EVAL[BestOne]);
+            iga_fatal("Evaluate",runnow,NowGeneration);
         }
         Selection();
         //printf("Selection\tBest=%d\t%e\n",BestOne,obj->EVAL[BestOne]);
         
-        if(NowGeneration>0 && BestValueEachGeneration[NowGeneration-1]<obj->EVAL[BestOne])
-        {
-            fprintf(stderr,"Selection error...........");
-            exit(0);
-        }
+        if(NowGeneration>0 && Better(BestValueEachGeneration[NowGeneration-1], obj->EVAL[BestOne]))
+            iga_fatal("Selection",runnow,NowGeneration);
         Crossover();
         //printf("Crossover\tBest=%d\t%e\n",BestOne,obj->EVAL[BestOne]);
         
-        if(NowGeneration>0 && BestValueEachGeneration[NowGeneration-1]<obj->EVAL[BestOne])
-        {
-            fprintf(stderr,"Crossover error...........");
-            exit(0);
-        }
+        if(NowGeneration>0 && Better(BestValueEachGeneration[NowGeneration-1], obj->EVAL[BestOne]))
+            iga_fatal("Crossover",runnow,NowGeneration);
         Mutation();
         //printf("mutation\tBest=%d\t%e\n",BestOne,obj->EVAL[BestOne]);
-        if(NowGeneration>0 && BestValueEachGeneration[NowGeneration-1]<obj->EVAL[BestOne])
-        {
-            fprintf(stderr,"Mutation error...........");
-            exit(0);
-        }
+        if(NowGeneration>0 && Better(BestValueEachGeneration[NowGeneration-1], obj->EVAL[BestOne]))
+            iga_fatal("Mutation",runnow,NowGeneration);
         
         ChangeMutationRange();
         NumFitnessFunction[NowGeneration] = obj->function_cost;
@@ -266,68 +311,125 @@ void IGA::run(int run)
         nowfitness=obj->EVAL[BestOne];
         if(NowGeneration % print_no == 0)
         {
-            fprintf(ptr1,"%4d %4d %4d %6d %e %1.3f\n",runnow,fitness_same,NowGeneration,obj->function_cost,obj->EVAL[BestOne],obj->best_cc);
+            double cc = BestCC();
+            fprintf(ptr1,"%4d %4d %4d %6d %e %1.3f\n",runnow,fitness_same,NowGeneration,obj->function_cost,obj->EVAL[BestOne],cc);
             fflush(ptr1);
             if(test_mode)
             {
-                printf("%4d %4d %4d %6d %e %1.3f\n",runnow,fitness_same,NowGeneration,obj->function_cost,obj->EVAL[BestOne],obj->best_cc);
+                printf("%4d %4d %4d %6d %e %1.3f\n",runnow,fitness_same,NowGeneration,obj->function_cost,obj->EVAL[BestOne],cc);
                 p=Chromosomes+BestOne*PARAM_NUM;
                 obj->Decode(p);
                 obj->printCurrentModelParameters(p,0);
             }
         }
-        if(NowGeneration>0 && BestValueEachGeneration[NowGeneration-1]<obj->EVAL[BestOne])
-        {
-            fprintf(stderr,"IGA error...........");
-            exit(0);
-        }
         NowGeneration++;
     }
     p=Chromosomes+BestOne*PARAM_NUM;
+    obj->RecordRun(runnow,p);//cc and simulated profile of this run's best model
     obj->Decode(p);//reflash to the best chromosome
     for(i=0;i<NumGeneParam;i++)
         obj->ModelParameters[runnow][i]=obj->GeneParamValues[i];
     obj->ModelParameters[runnow][NumGeneParam]=obj->EVAL[BestOne];
 }
+//sortloc[w] = the genes that can regulate: the confirmed ('+'/'-') ones first, then the '?' ones
+void IGA::BuildSortLoc()
+{
+    int w,x,k,conf;
+    for(w=0;w<2;w++)
+    {
+        k = 0;
+        for(x=0;x<NumVars;x++)
+        {
+            if(knowledge->get_LocMask(w, x)==0 && knowledge->get_choose(w, x)==1)
+            {
+                if(k < PossibleCount(w)){sortloc[w][k]=x;}
+                k++;
+            }
+        }
+        conf = k;
+        for(x=0;x<NumVars;x++)
+        {
+            if(knowledge->get_LocMask(w, x)==0 && knowledge->get_choose(w, x)==0)
+            {
+                if(k < PossibleCount(w)){sortloc[w][k]=x;}
+                k++;
+            }
+        }
+        if(k != PossibleCount(w) || conf != ConfirmedCount(w))
+        {
+            fprintf(stderr,"inconsistent knowledge: %d possible regulators found, %d expected\n",k,PossibleCount(w));
+            exit(1);
+        }
+    }
+}
+//value drawn from the allowed range of the gene (index = chromosome index of Gij/Hij)
+double IGA::RandomValue(int w,int gene,int index)
+{
+    int rg = knowledge->get_range(w, gene);
+    if(rg==2)//unknown
+        return Lower_bound[index]+Interval[index]*RandomFloat();
+    else if(rg==1)//positive
+        return 0+Upper_bound[index]*RandomFloat();
+    else if(rg==-1)//negative
+        return Lower_bound[index]+(0-Lower_bound[index])*RandomFloat();
+    return 0;
+}
+//initial locations of one chromosome (w=0: G, w=1: H)
+void IGA::InitLocations(int w,double *chrom)
+{
+    int no = SlotCount(w), nconf = ConfirmedCount(w), poss = PossibleCount(w), base = SlotBase(w);
+    int nfree = no - nconf;
+    int s,k,t;
+    std::vector<int> pool;
+    //the confirmed regulators: dedicated slots, always on
+    for(s=0;s<nconf;s++)
+        chrom[base+2*s] = LocCode(sortloc[w][s],true);
+    if(nfree <= 0)
+        return;
+    for(k=nconf;k<poss;k++)
+        pool.push_back(sortloc[w][k]);
+    if(SlotsIdTF(w))
+    {
+        //one slot for every free gene; a random number (0..nfree) of them is switched off
+        int zeros = RandomInt(nfree+1);
+        std::vector<int> off(nfree,0);
+        for(s=0;s<nfree;s++)
+            off[s] = s;
+        for(s=0;s<zeros;s++)
+        {
+            t = s + RandomInt(nfree-s);
+            std::swap(off[s],off[t]);
+        }
+        std::vector<bool> isoff(nfree,false);
+        for(s=0;s<zeros;s++)
+            isoff[off[s]] = true;
+        for(s=0;s<nfree;s++)
+            chrom[base+2*(nconf+s)] = LocCode(pool[s],!isoff[s]);
+    }
+    else
+    {
+        //random subset: nfree distinct free genes, all on
+        for(s=0;s<nfree;s++)
+        {
+            t = s + RandomInt((int)pool.size()-s);
+            std::swap(pool[s],pool[t]);
+            chrom[base+2*(nconf+s)] = LocCode(pool[s],true);
+        }
+    }
+}
 void IGA::initialpop()
 {
     //printf("initial start!!\n");
-    int i,j,x;
-    int g,h;
+    int i,j,s,x;
     double *p1;
-    double value;
-    int g_possible_zero;
-    int h_possible_zero;
-    int sel_gloc,sel_hloc;
-    int gloc_index,hloc_index;
-    int tmp_loc;
-    temperature = 1.0;
+    int gene;
     obj->function_cost = 0;
-    obj->best_cc=-1;
-    value = 0;
-    g = 0;
-    h = 0;
     if(Debug_mode)
     {
         for(x=0;x<PARAM_NUM;x++){printf("Low[%d]=%f up[%d]=%f inter[%d]=%f\n",x,Lower_bound[x],x,Upper_bound[x],x,Interval[x]);}
         PAUSE
     }
-    for(x=0;x<NumVars;x++)
-    {
-        if(knowledge->get_LocMask(0, x)==0)
-        {
-            sortloc[0][g]=x;
-            g++;
-        }
-    }
-    for(x=0;x<NumVars;x++)
-    {
-        if(knowledge->get_LocMask(1, x)==0)
-        {
-            sortloc[1][h]=x;
-            h++;
-        }
-    }
+    BuildSortLoc();
     if(Debug_mode)
     {
         printf("possible G locations:\n");
@@ -344,243 +446,24 @@ void IGA::initialpop()
     }
     
     for(x=0;x<PARAM_NUM;x++){IntervalChangeByTemplate[x]=Interval[x];}
-    p1=Chromosomes;
     for(i=0;i<NO_POP;i++)
     {
-        sel_gloc=0;
-        sel_hloc=0;
-        gloc_index=0;
-        hloc_index=0;
-        for(x=0;x<NumTFs;x++){Loc_tmp[0][x]=knowledge->get_LocMask(0, x);}
-        for(x=0;x<NumTFs;x++){eachpop_loc[0][x]=knowledge->get_LocMask(0, x);}
-        for(x=0;x<NumVars;x++){Loc_tmp[1][x]=knowledge->get_LocMask(1, x);}
-        for(x=0;x<NumVars;x++){eachpop_loc[1][x]=knowledge->get_LocMask(1, x);}
-        if(!(knowledge->get_fixg()))
+        p1 = Chromosomes+i*PARAM_NUM;
+        InitLocations(0,p1);
+        InitLocations(1,p1);
+        //Gij / Hij, in the range of the knowledge of their gene
+        for(s=0;s<NO_g;s++)
         {
-            if(Debug_mode)
-            {
-             printf("Gij original:\n");
-             for(x=0;x<NumVars;x++)
-                 printf("%d:%d ",x,eachpop_loc[0][x]);
-            }
-            g_possible_zero = RandomInt(NO_g - knowledge->get_gConfirm()+1);
-            if(Debug_mode)
-            {
-                printf("\n Gij number of zero:%d\n",g_possible_zero);
-                PAUSE
-            }
-            for(x=0;x<g_possible_zero;x++)
-            {
-                tmp_loc=0;
-                do{
-                    tmp_loc = RandomInt(NumTFs);
-                }while(eachpop_loc[0][tmp_loc]==1||knowledge->get_choose(0, tmp_loc)==1);
-                eachpop_loc[0][tmp_loc]=1;
-                //printf("%d:mutant loc:%d\n",k,tmp_loc);
-            }
-            
-            if(Debug_mode)
-            {
-             printf("after mutate Gij:\n");
-             for(x=0;x<NumVars;x++)
-                 printf("%d:%d ",x,eachpop_loc[0][x]);
-             printf("\n");
-            }
+            gene = LocGene(p1[2*s]);
+            p1[2*s+1] = knowledge->get_noregulation() ? 0 : RandomValue(0,gene,2*s+1);
         }
-        if(!(knowledge->get_fixh()))
+        for(s=0;s<NO_h;s++)
         {
-            if(Debug_mode)
-            {
-             printf("\nHij original:\n");
-             for(x=0;x<NumVars;x++)
-                 printf("%d:%d ",x,eachpop_loc[1][x]);
-            }
-            h_possible_zero = RandomInt(NO_h - knowledge->get_hConfirm()+1);
-            if(Debug_mode)
-            {
-                printf("\n Hij number of zero:%d\n",h_possible_zero);
-                PAUSE
-            }
-            for(x=0;x<h_possible_zero;x++)
-            {
-                tmp_loc=0;
-                do{
-                    tmp_loc = RandomInt(NumVars);
-                }while(eachpop_loc[1][tmp_loc]==1||knowledge->get_choose(1, tmp_loc)==1);
-                eachpop_loc[1][tmp_loc]=1;
-                //printf("%d:mutant loc:%d\n",k,tmp_loc);
-            }
-            if(Debug_mode)
-            {
-             printf("\nafter mutate Hij:\n");
-             for(x=0;x<NumVars;x++)
-                 printf("%d:%d ",x,eachpop_loc[1][x]);
-             printf("\n");
-            }
+            gene = LocGene(p1[h_start+2*s]);
+            p1[h_start+2*s+1] = RandomValue(1,gene,h_start+2*s+1);
         }
-        
-        //printf("%d:",i);
-        for(j=0;j<PARAM_NUM;j++,p1++)
-        {
-            
-            if(j<h_start) //g_location and Gij
-            {
-                if(j%2 == 0)//g_location
-                {
-                    if(knowledge->get_fixg())
-                    {
-                        if(knowledge->get_noregulation())
-                        {
-                            value = 0;
-                        }
-                        else
-                        {
-                            sel_gloc = sortloc[0][gloc_index];
-                            value = sortloc[0][gloc_index];
-                        }
-                        
-                    }
-                    else
-                    {
-                        if(knowledge->get_idgTF())
-                        {
-                            tmp_loc = sortloc[0][gloc_index];
-                            //printf("\n%d %d\n",gloc_index,tmp_loc);
-                            //PAUSE
-                            
-                            sel_gloc = tmp_loc;//select location
-                            if(eachpop_loc[0][sel_gloc] == 1)//mutant to negative
-                            {
-                                if(tmp_loc == 0)
-                                    value = neg_zero;
-                                else
-                                    value = -(tmp_loc);
-                            }
-                            else
-                                value = tmp_loc;
-                        
-                        }
-                        else
-                        {
-                            do{
-                                tmp_loc = RandomInt(NumVars);
-                            }while(Loc_tmp[0][tmp_loc]==1);
-                            Loc_tmp[0][tmp_loc]=1;
-                            sel_gloc = tmp_loc;
-                            value = tmp_loc;
-                        }
-                        
-                    }
-                    
-                    //printf("g_Location: %f\n",value);
-                    //PAUSE
-                    gloc_index++;
-                    //printf("location initial,knowledge=%d\n",g_NumConnections);
-                }
-                else//Gij
-                {
-                    //printf("sel_gloc=%d, j=%d\n",sel_gloc,j);
-                    if(knowledge->get_noregulation())
-                        value = 0;
-                    else
-                    {
-                        if(knowledge->get_range(0, sel_gloc)==2)
-                        {
-                            //printf("unknown ");
-                            //PAUSE
-                            value=Lower_bound[j]+Interval[j]*RandomFloat();
-                        }
-                        else if(knowledge->get_range(0, sel_gloc)==1)
-                        {
-                            //printf("positive ");
-                            //PAUSE
-                            value=0+Upper_bound[j]*RandomFloat();
-                        }
-                        else if(knowledge->get_range(0, sel_gloc)==-1)
-                        {
-                            //printf("negative ");
-                            //PAUSE
-                            value=Lower_bound[j]+(0-Lower_bound[j])*RandomFloat();
-                        }
-                        //printf("Gij: %f\n",value);
-                    }
-                }
-            }
-            else if(j>=h_start && j<alpha_index) //h_location and Hij
-            {
-                if(j%2 == 0)//h_location
-                {
-                    if(knowledge->get_fixh())
-                    {
-                        sel_hloc = sortloc[1][hloc_index];
-                        value = sortloc[1][hloc_index];
-                    }
-                    else
-                    {
-                        if(knowledge->get_idhTF())
-                        {
-                            tmp_loc = sortloc[1][hloc_index];
-                            //printf("\n%d %d\n",hloc_index,tmp_loc);
-                            //PAUSE
-                            sel_hloc = tmp_loc;//select location
-                            if(eachpop_loc[1][sel_hloc] == 1)//mutant to negative
-                            {
-                                if(tmp_loc == 0)
-                                    value = neg_zero;
-                                else
-                                    value = -(tmp_loc);
-                            }
-                            else
-                                value = tmp_loc;
-                        
-                        }
-                        else
-                        {
-                            do{
-                                tmp_loc = RandomInt(NumVars);
-                            }while(Loc_tmp[1][tmp_loc]==1);
-                            Loc_tmp[1][tmp_loc]=1;
-                            sel_hloc = tmp_loc;
-                            value = tmp_loc;
-                        }
-                        
-                    }
-                    //printf("h_Location: %f\n",value);
-                    //PAUSE
-                    hloc_index++;
-                    //printf("Location: %f\n",value);
-                    //printf("location initial,knowledge=%d\n",g_NumConnections);
-                }
-                else//Hij
-                {
-                    if(knowledge->get_range(1, sel_hloc)==2)
-                    {
-                        //printf("unknown ");
-                        value=Lower_bound[j]+Interval[j]*RandomFloat();
-                    }
-                    else if(knowledge->get_range(1, sel_hloc)==1)
-                    {
-                        //printf("positive ");
-                        //PAUSE
-                        value=0+Upper_bound[j]*RandomFloat();
-                    }
-                    else if(knowledge->get_range(1, sel_hloc)==-1)
-                    {
-                        //printf("negative ");
-                        //PAUSE
-                        value=Lower_bound[j]+(0-Lower_bound[j])*RandomFloat();
-                    }
-                    //printf("Hij: %f\n",value);
-                }
-            }
-            else//alpha,,beta,deltat
-            {
-                value=Lower_bound[j]+Interval[j]*RandomFloat();
-            }
-            *p1 = value;
-            //printf("%f ",value);
-        }//end of one chromosome
-        //printf("\n");
+        for(j=alpha_index;j<PARAM_NUM;j++)//alpha,,beta,deltat
+            p1[j]=Lower_bound[j]+Interval[j]*RandomFloat();
     }//end of POPSIZE
     //PAUSE
 }
@@ -608,9 +491,10 @@ void IGA::Evaluate()
     }
     //PAUSE
     
-    for(i=0;i<NO_POP;i++)
+    BestOne = 0;//not the best of the previous generation/run: a NaN there would stay "best"
+    for(i=1;i<NO_POP;i++)
     {
-        if(obj->EVAL[i] < obj->EVAL[BestOne])
+        if(Better(obj->EVAL[i], obj->EVAL[BestOne]))
         {
             BestOne = i;
         }
@@ -625,12 +509,12 @@ void IGA::Selection()
     for(i=0;i<NO_POP;i++)
         SortIndex[i] = i;
     
-    // sort by value of fitness function
+    // sort by value of fitness function (NaN last)
     for(i=0;i<NO_POP-1;i++)
     {
         for(j=i+1; j<NO_POP;j++)
         {
-            if(obj->EVAL[SortIndex[j]] < obj->EVAL[SortIndex[i]])
+            if(Better(obj->EVAL[SortIndex[j]], obj->EVAL[SortIndex[i]]))
             {
                 temp=SortIndex[j];
                 SortIndex[j] = SortIndex[i];
@@ -659,7 +543,7 @@ void IGA::Crossover()
     for(i=1;i<NumCrossover;i++){
         target[i] = RandomInt(NO_POP);//parent2
     }
-    for(i=0;i<NumCrossover;i+=2)
+    for(i=0;i+1<NumCrossover;i+=2)//NumCrossover is even
     {
         while(target[i]==target[i+1])
         {
@@ -676,6 +560,78 @@ void IGA::Crossover()
     }
     //printf("crossover best index:%d\n",BestOne);
 }
+//New location code of a slot (see IGA.h). Only the free ('?') slots change.
+//The new gene is a free gene that is not on in another slot of the chromosome, so the number of
+//regulators never drops below the number of slots by creating duplicates.
+//Random subset mode (idTF false): the gene is always on (the number of regulators stays NO).
+//Mode idTF: the location is switched on/off at random as before.
+//A '+'/'-' gene is never touched here, a mutation can neither remove it nor change its sign range.
+double IGA::MutateLocation(int w,const double *chrom,int slot)
+{
+    int nconf = ConfirmedCount(w), poss = PossibleCount(w), base = SlotBase(w), no = SlotCount(w);
+    int k,t,gene;
+    bool used;
+    std::vector<int> cand;
+    double oldcode = chrom[base+2*slot];
+    if(slot < nconf)
+        return LocCode(sortloc[w][slot],true);
+    for(k=nconf;k<poss;k++)
+    {
+        gene = sortloc[w][k];
+        used = false;
+        for(t=0;t<no && !used;t++)
+        {
+            if(t != slot && LocOn(chrom[base+2*t]) && LocGene(chrom[base+2*t]) == gene)
+                used = true;
+        }
+        if(!used)
+            cand.push_back(gene);
+    }
+    if(cand.empty())
+        return oldcode;
+    gene = cand[RandomInt((int)cand.size())];
+    if(SlotsIdTF(w))
+        return LocCode(gene, (rand() % 2) != 0);
+    return LocCode(gene,true);
+}
+//The crossover combines (location,value) pairs of two parents slot by slot. The dedicated slots of the
+//'+'/'-' genes are the same in both parents, but two free slots of the child can hold the same gene
+//(then one regulator is lost): move the later one to a gene that is not used.
+void IGA::RepairLocations(double *chrom)
+{
+    int w,s,t,base,nconf,no,gene;
+    double code;
+    bool dup;
+    for(w=0;w<2;w++)
+    {
+        base = SlotBase(w);
+        nconf = ConfirmedCount(w);
+        no = SlotCount(w);
+        if(w==0 && knowledge->get_noregulation())
+            continue;
+        for(s=nconf;s<no;s++)
+        {
+            code = chrom[base+2*s];
+            if(!LocOn(code))
+                continue;
+            gene = LocGene(code);
+            dup = false;
+            for(t=0;t<s && !dup;t++)
+            {
+                if(LocOn(chrom[base+2*t]) && LocGene(chrom[base+2*t]) == gene)
+                    dup = true;
+            }
+            if(!dup)
+                continue;
+            code = MutateLocation(w,chrom,s);
+            if(code == chrom[base+2*s])
+                continue;//every free gene is used
+            chrom[base+2*s] = code;
+            if(LocOn(code))
+                chrom[base+2*s+1] = RandomValue(w,LocGene(code),base+2*s+1);
+        }
+    }
+}
 void IGA::Mutation()
 {
     //printf("start mutation\n");
@@ -683,45 +639,37 @@ void IGA::Mutation()
     int m_pop,m_param,point;
     int g_index;
     int h_index;
-    int fix_loc;
     int gij_index;
     int hij_index;
+    int slot,nfree;
     double gij,hij;
-    bool loc_same = false;
-    //double *mutant;
-    //mutant = new double [PARAM_NUM];
-    //memset(mutant, 0, PARAM_NUM);
-    double value, oldvalue;
+    double value, oldvalue, newvalue;
+    double *chrom;
     
-    if(!knowledge->get_noregulation())
+    if(!knowledge->get_noregulation() && NO_g > 0)
     {
         //============g_location====================================//
-        for(i=0;i<m_size2;i++)
+        nfree = NO_g - knowledge->get_gConfirm();
+        if(nfree > 0 && !knowledge->get_fixg())
         {
-            //printf("Mutate Location");
-            do{
-                m_pop = RandomInt(NO_POP);
-            }while(m_pop == BestOne);
-            //printf("m_pop=%d BestOne=%d\n",m_pop,BestOne);
-            do{
-                m_param = RandomInt(2*NO_g);
-            }while(m_param%2 == 1);
-            //printf("mutant Gij location=%d\n",m_param);
-            //PAUSE
-            g_index = m_param;
-            oldvalue = *(Chromosomes+PARAM_NUM*m_pop+g_index);
-            fix_loc = static_cast<int>(MutateOneValue(oldvalue,g_index,0));
-            *(Chromosomes+PARAM_NUM*m_pop+g_index) = fix_loc;
-            if(oldvalue == fix_loc)
-                loc_same = true;
-            if(!knowledge->get_fixg() && !loc_same)
+            for(i=0;i<m_size2;i++)
             {
-                //printf("loc change, gij have to change!\n");
-                //PAUSE
-                gij_index = g_index + 1;
-                gij = *(Chromosomes + PARAM_NUM*m_pop + gij_index);
-                *(Chromosomes+PARAM_NUM*m_pop+gij_index) = MutateOneValue(gij, gij_index, fix_loc);
-                loc_same = false;
+                do{
+                    m_pop = RandomInt(NO_POP);
+                }while(m_pop == BestOne);
+                chrom = Chromosomes+PARAM_NUM*m_pop;
+                slot = knowledge->get_gConfirm() + RandomInt(nfree);
+                g_index = 2*slot;
+                oldvalue = chrom[g_index];
+                newvalue = MutateLocation(0,chrom,slot);
+                chrom[g_index] = newvalue;
+                //every time the location changes the Gij has to follow (new gene = new sign range)
+                if(newvalue != oldvalue)
+                {
+                    gij_index = g_index + 1;
+                    gij = chrom[gij_index];
+                    chrom[gij_index] = MutateOneValue(gij, gij_index, static_cast<int>(newvalue));
+                }
             }
         }
         //=============Gij========================================//
@@ -730,15 +678,8 @@ void IGA::Mutation()
             do{
                 m_pop = RandomInt(NO_POP);
             }while(m_pop == BestOne);
-            do{
-                m_param = RandomInt(2*NO_g);
-            }while(m_param%2 == 0);
-            //printf("mutant Gij\n");
-            //printf("mutant index=%d\n",m_param);
-            //PAUSE
-            gij_index = m_param;
+            gij_index = 2*RandomInt(NO_g)+1;
             g_index = static_cast<int>(*(Chromosomes+PARAM_NUM*m_pop+(gij_index-1)));
-            //printf("beta_loc=%d\n",beta_loc);
             gij = *(Chromosomes+PARAM_NUM*m_pop+gij_index);
             *(Chromosomes+PARAM_NUM*m_pop+gij_index)=MutateOneValue(gij,gij_index,g_index);
         }
@@ -750,44 +691,39 @@ void IGA::Mutation()
     //============h_location=================================//
     if(NO_h > 0)//no Hij is searched when all Hij are fixed to 0
     {
-    for(i=0;i<m_size2;i++)
-    {
-        //printf("mutant location\n");
-        do{
-            m_pop = RandomInt(NO_POP);
-        }while(m_pop == BestOne);
-        do{
-            m_param = RandomInt(2*NO_h);
-        }while(m_param%2 == 1);
-        h_index = h_start + m_param;
-        oldvalue = *(Chromosomes+PARAM_NUM*m_pop+h_index);
-        fix_loc = static_cast<int>(MutateOneValue(oldvalue,h_index,0));
-        *(Chromosomes+PARAM_NUM*m_pop+h_index) = fix_loc;
-        if(oldvalue == fix_loc)
-            loc_same = true;
-        if(!knowledge->get_fixh() && !loc_same)
+        nfree = NO_h - knowledge->get_hConfirm();
+        if(nfree > 0 && !knowledge->get_fixh())
         {
-            hij_index = h_index + 1;
-            hij = *(Chromosomes + PARAM_NUM*m_pop + hij_index);
-            *(Chromosomes+PARAM_NUM*m_pop+hij_index) = MutateOneValue(hij, hij_index, fix_loc);
-            loc_same = false;
+            for(i=0;i<m_size2;i++)
+            {
+                do{
+                    m_pop = RandomInt(NO_POP);
+                }while(m_pop == BestOne);
+                chrom = Chromosomes+PARAM_NUM*m_pop;
+                slot = knowledge->get_hConfirm() + RandomInt(nfree);
+                h_index = h_start + 2*slot;
+                oldvalue = chrom[h_index];
+                newvalue = MutateLocation(1,chrom,slot);
+                chrom[h_index] = newvalue;
+                if(newvalue != oldvalue)
+                {
+                    hij_index = h_index + 1;
+                    hij = chrom[hij_index];
+                    chrom[hij_index] = MutateOneValue(hij, hij_index, static_cast<int>(newvalue));
+                }
+            }
         }
-    }
-    //============hij=================================//
-    for(i=0;i<m_size1;i++)
-    {
-        //printf("mutant location\n");
-        do{
-            m_pop = RandomInt(NO_POP);
-        }while(m_pop == BestOne);
-        do{
-            m_param = RandomInt(2*NO_h);
-        }while(m_param%2 == 0);
-        hij_index = h_start + m_param;
-        h_index = static_cast<int>(*(Chromosomes+PARAM_NUM*m_pop+(hij_index-1)));
-        hij = *(Chromosomes+PARAM_NUM*m_pop+hij_index);
-        *(Chromosomes+PARAM_NUM*m_pop+hij_index)=MutateOneValue(hij,hij_index,h_index);
-    }
+        //============hij=================================//
+        for(i=0;i<m_size1;i++)
+        {
+            do{
+                m_pop = RandomInt(NO_POP);
+            }while(m_pop == BestOne);
+            hij_index = h_start + 2*RandomInt(NO_h)+1;
+            h_index = static_cast<int>(*(Chromosomes+PARAM_NUM*m_pop+(hij_index-1)));
+            hij = *(Chromosomes+PARAM_NUM*m_pop+hij_index);
+            *(Chromosomes+PARAM_NUM*m_pop+hij_index)=MutateOneValue(hij,hij_index,h_index);
+        }
     }//end of NO_h > 0
     //============alpha, beta==============================================================
     for(i=0;i<m_size1;i++)
@@ -826,54 +762,14 @@ double IGA::MutateOneValue(double oldValue,int index,int fixloc)
     //printf("fixloc=%d\n",fixloc);
         //PAUSE
     double value,r, gradient;
-    int old_loc, tmp_loc,flag,x;
     //printf("index=%d\n",index);
     //PAUSE
     value = 0;
     if(index < h_start)
     {
-        if(index % 2 == 0)//g_Location
+        if(index % 2 == 0)//g_Location: mutated by MutateLocation, never here
         {
-            if(knowledge->get_fixg())
-                value = oldValue;
-            else
-            {
-                old_loc = (int)oldValue;
-                if(old_loc == neg_zero){old_loc = 0;}
-                else{old_loc = abs(old_loc);}
-                if(knowledge->get_choose(0,old_loc)==1)
-                {
-                    value = old_loc;
-                    //printf("fix_reg\n");
-                    //PAUSE
-                }
-                else
-                {
-                    
-                    
-                    x = RandomInt(gloc_possible);
-                    tmp_loc = sortloc[0][x];
-                    /*
-                    do{
-                        tmp_loc = RandomInt(NumTFs);
-                    }while(knowledge->get_LocMask(0,tmp_loc)==1);
-                    */
-                    flag=rand() % 2;
-                    if(flag == 0)//negative location
-                    {
-                        if(tmp_loc == 0){value = neg_zero;}
-                        else{value = -tmp_loc;}
-                    }
-                    else
-                    {
-                        value = tmp_loc;
-                    }
-                    
-                }
-
-            }
-            //printf("after g Locaion mutate: %f\n",value);
-            
+            value = oldValue;
         }
         else//Gij
         {
@@ -941,44 +837,9 @@ double IGA::MutateOneValue(double oldValue,int index,int fixloc)
     }
     else if(index>=h_start && index<alpha_index)
     {
-        if(index % 2 == 0)//h_Location
+        if(index % 2 == 0)//h_Location: mutated by MutateLocation, never here
         {
-            if(knowledge->get_fixg())
-                value = oldValue;
-            else
-            {
-                old_loc = (int)oldValue;
-                if(old_loc == neg_zero){old_loc = 0;}
-                else{old_loc = abs(old_loc);}
-                if(knowledge->get_choose(1,old_loc)==1)
-                {
-                    value = old_loc;
-                }
-                else
-                {
-                    x = RandomInt(hloc_possible);
-                    tmp_loc = sortloc[1][x];
-                    
-                    /*
-                    do{
-                        tmp_loc = RandomInt(NumTFs);
-                    }while(knowledge->get_LocMask(1,tmp_loc)==1);
-                    */
-                    flag=rand() % 2;
-                    if(flag == 0)//negative location
-                    {
-                        if(tmp_loc == 0){value = neg_zero;}
-                        else{value = -tmp_loc;}
-                    }
-                    else
-                    {
-                        value = tmp_loc;
-                    }
-                    
-                }
-                
-            }
-            //printf("after h Locaion mutate: %f\n",value);
+            value = oldValue;
         }
         else//Hij
         {
@@ -1090,11 +951,12 @@ void IGA::CX_mutation(unsigned int index_one,unsigned int index_two)
     
     //double value;
     bool reCom=false;
-    bool loc_same = false;
     int Index[2];
     //int DoMutationIndex[PARAM_NUM];
-    int g_loc, h_loc, fix_loc;
-    if(obj->EVAL[index_one] <= obj->EVAL[index_two])
+    int loc;
+    int w, slot;
+    double oldcode, newcode;
+    if(!(Better(obj->EVAL[index_two], obj->EVAL[index_one])))//index_one is the better (or equal) one
     {
         //printf("EVAL[%d]=%f EVAL[%d]=%f\n",*index_one,EVAL[*index_one],*index_two,EVAL[*index_two]);
         Index[0]=index_one;
@@ -1144,73 +1006,38 @@ void IGA::CX_mutation(unsigned int index_one,unsigned int index_two)
             if(DoMutationIndex[i]==0 )
             {
                 
-                if(i < h_start)
+                if(i < (unsigned int)alpha_index)
                 {
-                    if(!knowledge->get_noregulation())
+                    w = ((int)i < h_start) ? 0 : 1;
+                    if(w == 0 && knowledge->get_noregulation())
+                        continue;
+                    if((int)i % 2 == 0)//g_Location / h_Location
                     {
-                        if(i % 2 == 0)//g_Location
-                        {
-                            
-                            fix_loc = static_cast<int>(MutateOneValue(OA->m_Parents[1][i],i,0));
-                            if(fix_loc == OA->m_Parents[1][i])
-                                loc_same = true;
-                            OA->m_Parents[1][i] = fix_loc;
-                            OA->m_OATable[OA->m_Height][i]=OA->m_Parents[1][i];
-                            DoMutationIndex[i]=1;
-                            if(!knowledge->get_fixg() && !loc_same)
-                            {
-                                //printf("cx mutate loc and gij\n");
-                                //PAUSE
-                                OA->m_Parents[1][i+1] = MutateOneValue(OA->m_Parents[1][i+1],i+1,fix_loc);
-                                OA->m_OATable[OA->m_Height][i+1]=OA->m_Parents[1][i+1];
-                                DoMutationIndex[i+1]=1;
-                                loc_same = false;
-                            }
-                            
-                        }
-                        else//Gij
-                        {
-                            if(DoMutationIndex[i] == 0)
-                            {
-                                g_loc = static_cast<int>(OA->m_Parents[1][i-1]);
-                                OA->m_Parents[1][i]=MutateOneValue(OA->m_Parents[1][i],i,g_loc);
-                                OA->m_OATable[OA->m_Height][i]=OA->m_Parents[1][i];
-                                DoMutationIndex[i]=1;
-                            }
-                        }
-                        reCom=true;
-                    }
-                }
-                else if(i>=h_start && i<alpha_index)
-                {
-                    if(i % 2 == 0)//h_Location
-                    {
-                        fix_loc = static_cast<int>(MutateOneValue(OA->m_Parents[1][i],i,0));
-                        if(fix_loc == OA->m_Parents[1][i])
-                            loc_same = true;
-                        OA->m_Parents[1][i] = fix_loc;
+                        slot = ((int)i - SlotBase(w))/2;
+                        oldcode = OA->m_Parents[1][i];
+                        newcode = MutateLocation(w,OA->m_Parents[1],slot);
+                        OA->m_Parents[1][i] = newcode;
                         OA->m_OATable[OA->m_Height][i]=OA->m_Parents[1][i];
                         DoMutationIndex[i]=1;
-                        if(!knowledge->get_fixh() && !loc_same)
+                        //the value of the Gij/Hij has to follow EVERY change of the location
+                        //(the old flag was never reset, so after the first unchanged location it stopped doing so)
+                        if(!SlotsFixed(w) && newcode != oldcode)
                         {
-                            OA->m_Parents[1][i+1] = MutateOneValue(OA->m_Parents[1][i+1],i+1,fix_loc);
+                            OA->m_Parents[1][i+1] = MutateOneValue(OA->m_Parents[1][i+1],i+1,static_cast<int>(newcode));
                             OA->m_OATable[OA->m_Height][i+1]=OA->m_Parents[1][i+1];
                             DoMutationIndex[i+1]=1;
-                            loc_same = false;
                         }
-
                     }
-                    else//Hij
+                    else//Gij / Hij
                     {
                         if(DoMutationIndex[i] == 0)
                         {
-                            h_loc = static_cast<int>(OA->m_Parents[1][i-1]);
-                            OA->m_Parents[1][i]=MutateOneValue(OA->m_Parents[1][i],i,h_loc);
+                            loc = static_cast<int>(OA->m_Parents[1][i-1]);
+                            OA->m_Parents[1][i]=MutateOneValue(OA->m_Parents[1][i],i,loc);
                             OA->m_OATable[OA->m_Height][i]=OA->m_Parents[1][i];
                             DoMutationIndex[i]=1;
                         }
                     }
-                    
                     reCom=true;
                 }
                 else

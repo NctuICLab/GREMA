@@ -2,6 +2,7 @@
 #define COrthogonalArray_H
 #include "Objfunction.h"
 #include "stdafx.h"
+#include <functional>
 class COrthogonalArray
 {
 public:
@@ -11,6 +12,9 @@ public:
 	void    IntelliegentCrossover(unsigned int index_one,unsigned int index_two,unsigned int best);
     int set_bestindex(){return best_index;}
 	void	DisplayOATable();
+    //called on every chromosome the crossover assembles from the two parents (before it is evaluated),
+    //to repair what combining parts of two parents can break (duplicate regulators), may be empty
+    std::function<void(double*)> m_Repair;
     double  **m_Parents;
     double  **m_OATable;
     unsigned int	m_Width, m_Height;

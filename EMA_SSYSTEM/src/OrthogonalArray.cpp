@@ -10,6 +10,9 @@ COrthogonalArray::COrthogonalArray(Objfunction *objection)
     m_flag = NULL;
     GeneValueIndex = NULL;
     m_Parents = NULL;
+    m_OATable = NULL;
+    best_index = 0;
+    m_MES[0] = m_MES[1] = 0;
     m_Width = 0;
     m_Height = 0;
     m_Level = 0;
@@ -41,8 +44,7 @@ COrthogonalArray::~COrthogonalArray()
     }
     if(m_Parents)
     {
-        for(i=0;i<2;i++)
-            delete [] m_Parents[i];
+        //the rows point into the chromosomes of the IGA (set before every crossover), they are not owned
         delete [] m_Parents;
     }
     
@@ -87,11 +89,11 @@ void COrthogonalArray::Create(unsigned int param, double *chromosomes,int NumEle
 	for(i=0;i<m_OAMSEHeight;i++)
 	{
         m_OATable[i]=new double[m_OAMSEWidth];
-        memset(m_OATable[i],0,m_OAMSEWidth);
+        memset(m_OATable[i],0,m_OAMSEWidth*sizeof(double));
 	}
     m_Parents = new double* [2];
     for(i=0;i<2;i++)
-        m_Parents[i] = new double[m_NumParameters];
+        m_Parents[i] = NULL;
 	m_flag=new int[m_Height+3];
     m_Index=new unsigned int[param];
     GeneValueIndex=new int[param];
@@ -197,13 +199,8 @@ void COrthogonalArray::DisplayOATable()
 
 double COrthogonalArray::EvaluateFitness(double *genes)
 {
-    double  solution[m_NumParameters];
-    double  value=0;
-	int i;
-	for(i=0;i<m_NumParameters;i++)
-		solution[i]=genes[i];
-	value=obj->fitness(solution);
-	return value;
+    std::vector<double> solution(genes, genes+m_NumParameters);
+    return obj->fitness(&solution[0]);
 }
 //-------------------------------------------------------------------------------------------------
 //								Intelligent Crossover
@@ -264,6 +261,7 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
         }
         //printf("\n");
 		
+		if(m_Repair){m_Repair(m_OATable[i]);}
 		m_OATable[i][m_NumParameters] = EvaluateFitness(m_OATable[i]);
 		if(Debug_mode)
         {
@@ -330,6 +328,7 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
 	//====================================================================================
     for(i=1;i<=2;i++)//算出子解的fitness
 	{
+		if(m_Repair){m_Repair(m_OATable[m_Height+i]);}
 		m_OATable[m_Height+i][m_NumParameters] = EvaluateFitness(m_OATable[m_Height+i]);
 //		printf("%f ",m_OATable[m_Height+i][m_NumParameters]);
 	}

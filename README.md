@@ -96,7 +96,7 @@ Options:
 | `-t` | yes | Number of threads, i.e. how many genes are optimised at the same time. Use at most the number of CPU cores. |
 | `-m` | no | Model, see [Models](#models). Default `HFODE`. |
 | `-g` | no | Maximum number of generations of the genetic algorithm for each run, at least 100. Default 1000. A run also stops early when the best fitness has not changed for 1000 generations. |
-| `-f` | no | Fitness function (error between the observed and the simulated expression): `0` squared relative error, `1` squared error (default), `2` squared error of the derivative + squared relative error, `3` squared error of the derivative + squared error, `4` squared error of the derivative only. |
+| `-f` | no | Fitness function (error between the observed and the simulated expression): `0` squared relative error, `1` squared error (default), `2` squared error of the derivative + squared relative error, `3` squared error of the derivative + squared error, `4` squared error of the derivative only. The derivative term is not computed at the last time point. On the IRMA data `3` was slightly better than the default, see [input/IRMA](input/IRMA/README.md). |
 | `-c` | no | `1` adds the correlation-coefficient term `1 - CC` to the fitness. Default `0`. |
 | `-min` | no | A parameter whose absolute value is not larger than this value is treated as "no regulation" when determining the regulations. Default `0`. |
 
@@ -155,12 +155,13 @@ Example: [results of Dream4 size10 Network1](output/Dream4_10_1/final_results.tx
 | `TF` | Regulator. |
 | `GENE` | Target gene. |
 | `REGULATORY` | `+` activation, `-` repression, `0` no regulation. |
-| `CONFIDENCE_LEVEL` | `1 / iteration`, where *iteration* is the round of GREMA in which the regulation was determined. `1.000` means it was determined in the first round (the most reliable), `0.500` in the second round, `0.333` in the third, and so on. |
+| `CONFIDENCE_LEVEL` | `1 / iteration`, where *iteration* is the round of GREMA in which the regulation was determined. `1.000` means it was determined in the first round (the most reliable), `0.500` in the second round, `0.333` in the third, and so on. Regulations given by the knowledge file have `1.000`. |
+| `VOTE_SCORE` | A finer ranking score in [0, 1]: the fraction of the 30 runs (weighted by fitness) in which the regulation is used (`abs(parameter) > -min`), computed in the round in which the regulation was determined. It ignores the sign. Most `CONFIDENCE_LEVEL` values are `1.000`, so `VOTE_SCORE` can be used to rank the edges. Regulations given by the knowledge file have `1.000` (or `0.000` for `0`). |
 
 The other files in the output directory:
 
 - `G*.txt`: the parameters, fitness and correlation coefficient of the 30 runs of the evolutionary algorithm for each gene (from the final quantification step).
-- `tmp/`: intermediate files, such as the knowledge of each round (`*_ForStep*.txt`) and the simulated profiles (`calprofile*`).
+- `tmp/`: intermediate files, such as the knowledge of each round (`*_ForStep*.txt`), the configuration file of the solver (`*_config`) and the simulated profiles (`calprofile*`). GREMA runs the solver inside this directory, so nothing is written next to the input file or into the current directory.
 
 ## Evaluation of GREMA
 
@@ -196,6 +197,8 @@ optional arguments:
   -u UNDIRECTED, --undirected UNDIRECTED
                         The gold-standard undirected GRN file with path
 ```
+
+The AUCs are computed from the binary prediction by default. Use `--score confidence` (`CONFIDENCE_LEVEL` for a regulation, 0 otherwise) or `--score vote` (`VOTE_SCORE`) to rank the edges with a finer score; TP/TN/FP/FN stay binary.
 
 GREMA can reconstruct the **directed GRNs**, so we can evaluate the results using **directed** or **undirected** gold standard GRNs. Here are two types of evaluating commands:
 

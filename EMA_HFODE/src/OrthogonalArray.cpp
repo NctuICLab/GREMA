@@ -5,7 +5,7 @@
 COrthogonalArray::COrthogonalArray()
 {
 	m_OA = NULL;
-    m_CutPoint = NULL;
+    m_NumSlots = 0;
     m_flag = NULL;
     m_Parents = NULL;
     m_OATable = NULL;
@@ -35,10 +35,6 @@ COrthogonalArray::~COrthogonalArray()
             delete [] m_OA[i];
         }
         delete [] m_OA;
-    }
-    
-    if(m_CutPoint){
-        delete [] m_CutPoint;
     }
     
     if(m_flag){
@@ -82,32 +78,42 @@ void COrthogonalArray::initialOA(Objfunction *objection, double **chrom, double 
     
 }
 //---------------------------------------------------------------------------------------
-void COrthogonalArray::Create(unsigned int param)
+void COrthogonalArray::Create(unsigned int param, int nslots)
 {
 	//obj = objection;
     unsigned int i;
     int usefactors;
     //i = 0;
     //usefactors = 0;
-    block = 4;
 	m_Level=2;
 	m_NumParameters = param;//NumEncodParam
-    //printf("m_NumParameters=%d\n",m_NumParameters);
-    if(m_NumParameters != 8)
+    m_NumSlots = nslots;
+    if(m_NumParameters != (unsigned int)(3*nslots+4))
     {
-        usefactors = m_NumParameters/block;
+        fprintf(stderr, "COrthogonalArray::Create: chromosome length %u does not match %d slots\n", param, nslots);
+        exit(1);
     }
-    else
+    //one factor (crossover block) per regulator slot + one for b/TransMax/degrade
+    m_Blocks.clear();
+    m_BlockSlot.clear();
+    for(int s=0;s<nslots;s++)
     {
-        usefactors = 3;
+        std::vector<unsigned int> b;
+        b.push_back(2*s);//loc
+        b.push_back(2*s+1);//n
+        b.push_back(2*nslots+s);//k
+        m_Blocks.push_back(b);
+        m_BlockSlot.push_back(s);
     }
-    m_CutPoint=new unsigned int[usefactors+1];
-    m_CutPoint[0]=0;
-    for(i=1;i<usefactors;i++)
-        m_CutPoint[i]=m_CutPoint[i-1]+block;
-    m_CutPoint[usefactors] = m_NumParameters;
-    //printf("usefactor=%d\n",usefactors);
-    //PAUSE
+    {
+        std::vector<unsigned int> b;
+        b.push_back(3*nslots);//b
+        b.push_back(3*nslots+1);//TransMax
+        b.push_back(3*nslots+2);//degrade
+        m_Blocks.push_back(b);
+        m_BlockSlot.push_back(-1);
+    }
+    usefactors = (int)m_Blocks.size();
 	OrthogonalArray(usefactors);
     if(Debug_mode)
     {
@@ -121,23 +127,50 @@ void COrthogonalArray::Create(unsigned int param)
 	for(i=0;i<m_OAMSEHeight;i++)
 	{
         m_OATable[i]=new double[m_OAMSEWidth];
-        memset(m_OATable[i],0,m_OAMSEWidth);
+        memset(m_OATable[i],0,m_OAMSEWidth*sizeof(double));
 	}
     m_Parents = new double* [2];
     for(i=0;i<2;i++)
+    {
         m_Parents[i] = new double[m_NumParameters];
+        memset(m_Parents[i],0,m_NumParameters*sizeof(double));
+    }
 	m_flag=new int[m_Height+3];
     if(Debug_mode)
     {
-        for(i=0;i<=usefactors;i++)
-            printf("m_CutPoint[%d]=%d ",i,m_CutPoint[i]);
-        printf("\n");
         printf("usefactor=%d\n",usefactors);
         printf("m_Width=%d\n",m_Width);
         printf("m_Height=%d\n",m_Height);
         printf("m_OAMSEHeight=%d m_OAMSEWidth=%d\n",m_OAMSEHeight,m_OAMSEWidth);
         PAUSE;
     }
+}
+//Copy crossover block `factor` of parent `parent` into `row`.  For a slot block this is
+//the slot's loc, n and k genes plus bit `slot` of the mask gene, so the slot stays a unit.
+void COrthogonalArray::AssembleBlock(double *row, unsigned int factor, unsigned int parent)
+{
+    const std::vector<unsigned int> &b = m_Blocks[factor];
+    for(size_t x=0;x<b.size();x++)
+        row[b[x]] = m_Parents[parent][b[x]];
+    int slot = m_BlockSlot[factor];
+    if(slot >= 0)
+    {
+        unsigned long long bit = 1ULL << slot;
+        unsigned long long pm = (unsigned long long)m_Parents[parent][m_NumParameters-1];
+        unsigned long long cur = (unsigned long long)row[m_NumParameters-1];
+        if(pm & bit) cur |= bit; else cur &= ~bit;
+        row[m_NumParameters-1] = (double)cur;
+    }
+}
+//An individual with no active slot is not allowed (the GA never creates one): if the
+//recombined mask is empty, activate the first slot.
+void COrthogonalArray::RepairMask(double *row)
+{
+    if(m_NumSlots <= 0) return;
+    unsigned long long all = (1ULL << m_NumSlots) - 1;
+    unsigned long long cur = (unsigned long long)row[m_NumParameters-1];
+    if((cur & all) == 0)
+        row[m_NumParameters-1] = (double)(cur | 1ULL);
 }
 void COrthogonalArray::SetParent(int index_one, int index_two)
 {
@@ -203,7 +236,7 @@ void COrthogonalArray::OrthogonalArray(int factor_number)//OrthogonalArray(7)
     for(i=0;i<m_Height;i++)
     {
         m_OA[i] = new unsigned int[m_Width];
-        memset(m_OA[i],0,m_Width);
+        memset(m_OA[i],0,m_Width*sizeof(unsigned int));
     }
     //m_OA = 0;
 	dist  = m_Height;//4
@@ -318,9 +351,6 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
 		PrintSolution(m_OATable[0]);//index_one
 		PrintSolution(m_OATable[m_Height]);//index_two
 		printf("..........\n");
-        for(x=0;x<=m_Width;x++)
-            printf("m_CutPoint[%d]=%d ",x,m_CutPoint[x]);
-        printf("\n");
         PAUSE;
 	}
     //printf("m_Width=%d\n",m_Width);
@@ -328,23 +358,11 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
     {
 		for(j=0;j<m_Width;j++)
         {
-            //m_CutPoint[0]=0;
-            //for(x=1;x<m_Width;x++)
-            //    m_CutPoint[x]=m_CutPoint[x-1]+block;
-            //m_CutPoint[x] = m_NumParameters;
             Level = m_OA[i][j];
-            //printf("Level=%d\n",Level);
-            //printf("start:m_CutPoint[%d]=%d\n",j,m_CutPoint[j]);
-            //printf("end  :m_CutPoint[%d]=%d\n",j+1,m_CutPoint[j+1]);
-			for(k=m_CutPoint[j];k<m_CutPoint[j+1];k++)
-            {
-                //printf("k=%d, j=%d\n",k,j);
-                m_OATable[i][k] = m_Parents[Level][k];
-				//printf("m_CutPoint[%d]:m_OATable[%d][%d]=%f ",j,i,k,m_OATable[i][k]);
-            }
-            //printf("\n");
-            //PAUSE
+            //the whole slot block (loc,n,k,mask bit) comes from one parent
+            AssembleBlock(m_OATable[i], j, Level);
         }
+        RepairMask(m_OATable[i]);
         //printf("\n");
         //printf("m_OATable[%d]\n",i);
 		//PrintSolution(m_OATable[i]);
@@ -396,22 +414,10 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
         {
             printf("start calculate the MED\n");
             printf("m_MinMSEFactor=%d\n",m_MinMSEFactor);
-            for(x=0;x<=m_Width;x++)
-                printf("m_CutPoint[%d]=%d ",x,m_CutPoint[x]);
-            printf("\n");
             PAUSE;
         }
-        //m_CutPoint[0]=0;
-        //for(x=1;x<m_Width;x++)
-        //    m_CutPoint[x]=m_CutPoint[x-1]+block;
-        //m_CutPoint[x] = m_NumParameters;
-		for(k=m_CutPoint[i];k<m_CutPoint[i+1];k++)
-		{
-			m_OATable[m_Height+1][k] = m_Parents[Level][k];
-			m_OATable[m_Height+2][k] = m_Parents[Level][k];
-			//printf("m_OATable[%d][%d]=%f ",m_Height+1,k,m_OATable[m_Height+1][k]);
-            //printf("m_OATable[%d][%d]=%f\n",m_Height+2,k,m_OATable[m_Height+2][k]);
-		}
+		AssembleBlock(m_OATable[m_Height+1], i, Level);
+		AssembleBlock(m_OATable[m_Height+2], i, Level);
 
 	}
 	//====================================================================================
@@ -424,10 +430,9 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
         PrintSolution(m_OATable[m_Height+2]);
         PAUSE
     }
-	for(k=m_CutPoint[m_MinMSEFactor];k<m_CutPoint[m_MinMSEFactor+1];k++)
-	{
-		m_OATable[m_Height+2][k] = m_Parents[m_MinFactorIndex][k];
-	}
+	AssembleBlock(m_OATable[m_Height+2], m_MinMSEFactor, m_MinFactorIndex);
+	RepairMask(m_OATable[m_Height+1]);
+	RepairMask(m_OATable[m_Height+2]);
 	//====================================================================================
     for(i=1;i<=2;i++)//算出子解的fitness
 	{
@@ -469,7 +474,7 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
 		for(j=0;j<m_Height+3;j++)
 		{
 			
-            if(m_OATable[j][m_NumParameters] <m_OATable[k][m_NumParameters] && m_flag[j]==0)
+            if(SafeFit(m_OATable[j][m_NumParameters]) < SafeFit(m_OATable[k][m_NumParameters]) && m_flag[j]==0)
 					k = j;
             //printf("k=%d ",k);
 		}
@@ -501,29 +506,20 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
     PopFitenss[index_one] = indexone_fitness;
     PopFitenss[index_two] = indextwo_fitness;
 // ------------------------------------------------------------
-	if(index_one==best_index && indexone_fitness> PopFitenss[best_index])
+	// (The former "Best One Lost" test compared PopFitenss[best_index] with the value
+	//  just stored in it, which can never fail, and the cx check re-evaluated both
+	//  offspring with obj->fitness() although the OA row they were copied from was
+	//  evaluated on the same data; for a NaN fitness that check was always "true" and
+	//  aborted the run.  Fitness values are now always finite, see Objfunction.)
+	if(Debug_mode)
 	{
-		printf("  Best One Lost!!error!!");
-        exit(0);
-		//getch();
+		if(SafeFit(indexone_fitness) != SafeFit(obj->fitness(index_one)) ||
+		   SafeFit(indextwo_fitness) != SafeFit(obj->fitness(index_two)))
+		{
+			fprintf(stderr, "Crossover: offspring fitness mismatch\n");
+			exit(1);
+		}
 	}
-    if(indexone_fitness != obj->fitness(index_one)){
-            printf("index_one fitness = %e\n",obj->fitness(index_one));
-            printf("index_one Popfitness[%d]=%e\n",index_one,PopFitenss[index_one]);
-        printf("cx error\n");
-        exit(0);
-    }
-    if(indextwo_fitness != obj->fitness(index_two)){
-        double test_value=0;
-        test_value = obj->OAfitenss(m_OATable, OffspringIndex[1]);
-        printf("index_two test_fitness = %e\n",test_value);
-        printf("index_two fitness = %e\n",obj->fitness(index_two));
-        printf("index_two Popfitness[%d]=%e\n",index_two,PopFitenss[index_two]);
-        obj->Decode(index_two);
-        obj->printCurrentModelParameters(index_two);
-        printf("cx error\n");
-        exit(0);
-    }
 
     //printf("index_two fitness = %e\n",obj->fitness(index_two));
     
@@ -541,9 +537,9 @@ void COrthogonalArray::IntelliegentCrossover(unsigned int index_one,unsigned int
 		PrintSolution(m_OATable[OffspringIndex[0]]);
 		PrintSolution(m_OATable[OffspringIndex[1]]);
 	}
-    if(PopFitenss[best_index] > PopFitenss[index_one])
+    if(SafeFit(PopFitenss[best_index]) > SafeFit(PopFitenss[index_one]))
         best_index = index_one;
-    if(PopFitenss[best_index] > PopFitenss[index_two])
+    if(SafeFit(PopFitenss[best_index]) > SafeFit(PopFitenss[index_two]))
         best_index = index_two;
 	//if(obj->EVAL[best_index]>obj->EVAL[index_one])
 	//	best_index=index_one;

@@ -1,5 +1,6 @@
 #include "Define.h"
 #include "Getknowledge.h"
+#include <string>
 #define Debug_mode 0
 using namespace std;
 Getknowledge::Getknowledge()
@@ -44,39 +45,50 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
     //int *choose = NULL;
     //choose = *choose_info;
     
-    char line[BUF_SIZE], tmp[NumVars];
+    string sline;
     char* token;
     char** X;
     //char knowledge[50];
     float val;
     int i, j, set_gene,num;
-    int mask=0;
     iteration = iter;
     set_gene=GeneIndex;
+    if(NumVars <= 0 || NumTFs <= 0 || NumTFs > NumVars || set_gene < 0 || set_gene >= NumVars)
+    {
+        fprintf(stderr, "Readknowledge: bad sizes (num_var=%d, num_tf=%d, gene index=%d)\n",NumVars,NumTFs,set_gene);
+        exit(1);
+    }
     //printf("%s knowledge file is opende\n",know);
     //sprintf(knowledge, "./data/knowledge_step%d.txt",iteration);
     fp.open(know, ifstream::in);
-    X = new char* [NumVars];
-    for(i = 0; i < NumVars; i++)
-        X[i] = new char[NumVars];
     if(!fp)
     {
         fprintf(stderr, "%s open failed!!!\n",know);
-        exit(0);
+        exit(1);
+    }
+    X = new char* [NumVars];
+    for(i = 0; i < NumVars; i++)
+    {
+        X[i] = new char[NumVars];
+        memset(X[i], '0', NumVars);//missing entries mean "no connection"
     }
     i=0;
-    while(fp.getline(line,sizeof(line),'\n'))
+    while(i < NumVars && getline(fp, sline))//no fixed line-length limit
     {
         j=0;
-        token = strtok(line, " \t\r\n");
+        token = strtok(&sline[0], " \t\r\n");
         while(token != NULL)
         {
-            X[i][j] = *token;
+            if(j < NumVars)//ignore surplus columns instead of overflowing X[i]
+                X[i][j] = *token;
             token = strtok(NULL, " \t\r\n");
             j++;
         }
-        i++;
+        if(j > 0)//a blank line is not a row
+            i++;
     }
+    if(i < NumVars)
+        fprintf(stderr, "Warning: %s has only %d rows (num_var=%d), the missing rows are treated as no connection\n",know,i,NumVars);
     num=0;
     for(i=0;i<NumVars;i++)
     {
@@ -93,31 +105,29 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
     for(j=0 ; j < NumTFs; j++)
     {
         //printf("%c ",X[set_gene][j]);
-        tmp[j] = X[set_gene][j];
-        if(tmp[j] == '?')
+        char c = X[set_gene][j];
+        if(c == '?')
         {
             LocMask[j]=0;
             range[j]=2;//search range include positive, negative, 0
             choose[j]=0;
             possible++;
         }
-        else if(tmp[j] == '+')
+        else if(c == '+')
         {
             LocMask[j]=0;
             range[j]=1;//search range only positive
             choose[j]=1;
             regulations++;
             possible++;
-            mask=(mask << 1 )+ 1;
         }
-        else if(tmp[j] == '-')
+        else if(c == '-')
         {
             LocMask[j]=0;
             range[j]=-1;//search range only negative
             choose[j]=1;
             regulations++;
             possible++;
-            mask=(mask << 1 )+ 1;
         }
         else
         {
@@ -132,13 +142,18 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
             PAUSE;
         }
     }
-    NumFixedLinks = mask;
-    if(X){
-        for(i = 0; i<NumVars; i++){
-            delete [] X[i];
-        }
-        delete [] X;
+    if(regulations > MAX_SLOTS)
+    {
+        fprintf(stderr, "Too many confirmed regulators (%d), at most %d are supported\n",regulations,MAX_SLOTS);
+        exit(1);
     }
+    //Confirmed regulators occupy the first `regulations` slots of every chromosome
+    //(bits 0..regulations-1 of the slot mask), see IGA::initialpop.
+    NumFixedLinks = (1ULL << regulations) - 1;
+    for(i = 0; i<NumVars; i++){
+        delete [] X[i];
+    }
+    delete [] X;
     
     /*
     for(i=0;i<NumTFs;i++)
@@ -160,27 +175,49 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
     {
         fix_knowledge=true;
     }
-    if((NumVars == NumTFs) && (possible == NumVars))//unknown TFs
+    //Number of regulator slots (NumConnections) in each chromosome.
+    //Confirmed ('+'/'-') regulators ALWAYS get a slot.  When the candidate regulators are
+    //unknown (every column is a candidate, or every column but the diagonal) only a random
+    //subset of the '?' regulators is searched at a time: the total number of slots is
+    //capped at round(possible/3) and this cap only limits the number of ADDITIONAL free
+    //slots, i.e. free slots = min(#'?', max(cap - #confirmed, 1)).  So the cap never
+    //removes a confirmed regulator, and at least one free slot is kept when a '?' exists.
+    if(((NumVars == NumTFs) && (possible == NumVars))//unknown TFs
+       || ((num == NumVars)&&(NumVars == NumTFs)&&(possible == (NumVars-1))))//dream challenge,unknown TFs
     {
+        int freeall = possible - regulations;
+        int freeslots = 0;
         val = possible/3.0;
-        NumConnections = (int)(val + 0.5);
-        id_TFs = false;
-    }
-    else if((num == NumVars)&&(NumVars == NumTFs)&&(possible == (NumVars-1)))
-    {
-        //dream challenge,unknown TFs
-        val = possible/3.0;
-        NumConnections = (int)(val + 0.5);
+        int cap = (int)(val + 0.5);
+        if(freeall > 0)
+        {
+            freeslots = cap - regulations;
+            if(freeslots < 1) freeslots = 1;
+            if(freeslots > freeall) freeslots = freeall;
+        }
+        NumConnections = regulations + freeslots;
+        if(NumConnections > MAX_SLOTS)
+        {
+            freeslots = MAX_SLOTS - regulations;
+            if(freeslots < 1)
+            {
+                fprintf(stderr, "Too many regulator slots (%d confirmed), at most %d are supported\n",regulations,MAX_SLOTS);
+                exit(1);
+            }
+            NumConnections = MAX_SLOTS;
+            fprintf(stderr, "Warning: only %d regulator slots are supported, searching %d free regulators at a time\n",MAX_SLOTS,freeslots);
+        }
         id_TFs = false;
     }
     else
     {
-	//if(NumVars <= 10){
-            NumConnections = possible;
-	//}else{
-        //   val = possible/2.0;
-        //   NumConnections = (int)(val + 0.5);
-        //}
+        //every '?' regulator has its own slot (no random subset)
+        NumConnections = possible;
+        if(NumConnections > MAX_SLOTS)
+        {
+            fprintf(stderr, "Too many candidate regulators (%d), at most %d are supported\n",NumConnections,MAX_SLOTS);
+            exit(1);
+        }
         id_TFs = true;
     }
     fp.close();

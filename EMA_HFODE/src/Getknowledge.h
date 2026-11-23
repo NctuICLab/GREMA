@@ -8,6 +8,7 @@ public:
     int get_Numconnections(){ return NumConnections; }
     int get_Confirm(){return regulations;}
     int get_Possible(){return possible;}
+    int get_Free(){return possible - regulations;}//number of '?' regulators
     bool get_fix(){return fix_knowledge;}
     bool get_noregulation(){return no_regulations;}
     bool get_idTFs(){return id_TFs;}
@@ -16,7 +17,9 @@ public:
     void    RangeVariable();
     int NumVars;
     int NumTFs;
-    unsigned int	NumFixedLinks;
+    // bit mask of the confirmed ('+'/'-') regulator slots.  Confirmed regulators always
+    // occupy the first get_Confirm() slots of every chromosome (bits 0..C-1).
+    unsigned long long	NumFixedLinks;
 private:
     int	NumConnections;
     int regulations;

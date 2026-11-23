@@ -2,6 +2,8 @@
 use strict;
 use warnings;
 use threads;
+use Scalar::Util qw(looks_like_number);
+use File::Copy qw(move);
 use Cwd 'abs_path';
 use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
@@ -19,7 +21,9 @@ my $program = abs_path($0);
 #======================
 my %gene_index;
 my $min = 0;
+my $select_top_no = 5;#number of top runs that vote for a regulation
 my $h_know_file;#S-system only
+my %vote_score;#TF_GENE => fitness-weighted fraction of the runs of the first iteration that use the regulation
 
 
 
@@ -45,6 +49,36 @@ sub regulation_columns {
 	my $n_start = ($model eq "HFODE") ? 2 : 1;
 	return ($n_start, $n_start + $total_gene_no);
 }
+#Natural order of gene names: G1,G2,...,G10 (not G1,G10,G2)
+sub natural_cmp {
+	my ($x,$y) = @_;
+	my @a = split(/(\d+)/,$x);
+	my @b = split(/(\d+)/,$y);
+	while(@a && @b){
+		my ($p,$q) = (shift @a, shift @b);
+		next if($p eq $q);
+		if($p =~ /^\d+$/ && $q =~ /^\d+$/){
+			return $p <=> $q if($p != $q);
+			next;
+		}
+		return $p cmp $q;
+	}
+	return scalar(@a) <=> scalar(@b);
+}
+#true if the value is a real, finite number (rejects NaN, inf, text)
+sub is_finite {
+	my ($x) = @_;
+	return 0 if(!defined($x) || !looks_like_number($x));
+	return 0 if($x != $x);#NaN
+	return 0 if($x == 9**9**9 || $x == -9**9**9);#inf
+	return 1;
+}
+#quote a string for the shell
+sub shq {
+	my ($s) = @_;
+	$s =~ s/'/'\\''/g;
+	return "'".$s."'";
+}
 sub read_expression {
 	my ($profile,$log_file) = @_;
 	my ($line,@ele);
@@ -52,9 +86,10 @@ sub read_expression {
 	my $total_rep = 0;
 	my $total_point = 0;
 	my %profile_expression;
-	open PROFILE,"<",$profile;
+	open PROFILE,"<",$profile or die "cannot open the profile ".$profile.": ".$!."\n";
 	while($line=<PROFILE>){
 		chomp $line;
+		$line =~ s/\r$//;
 		if($line =~ /repeat_number=/){
 			@ele = split(/=/,$line);
 			$total_rep = $ele[1];
@@ -86,15 +121,30 @@ sub read_expression {
 		}
 	}
 	close PROFILE;
-	my @all_gene = keys %{$profile_expression{1}};#get the gene name
+	#sorted gene order, so the gene numbers (and the run.log mapping) are reproducible
+	my @all_gene = sort { natural_cmp($a,$b) } keys %{$profile_expression{1}};#get the gene name
 	my $gene_no = 0;
-	open LOG,">",$log_file;
+	#the log is created here (mapping first); main() appends the run information
+	open LOG,">",$log_file or die "cannot write ".$log_file.": ".$!."\n";
 	print LOG "RUN_ID\tGENE_NAME\n";
 	foreach my $i (@all_gene){
 		#print STDERR $i."\n";
 		$gene_index{$gene_no} = $i;
 		print LOG $gene_no."\t".$i."\n";
 		$gene_no++;
+	}
+	close LOG;
+	if($cc == 1){
+		#-c 1 uses the correlation coefficient, which is undefined (NaN) for a flat profile
+		foreach my $rep (sort { $a <=> $b } keys %profile_expression){
+			foreach my $g (@all_gene){
+				next if(!defined $profile_expression{$rep}{$g});
+				my %uniq = map { $_ => 1 } split(/\t/,$profile_expression{$rep}{$g});
+				if(scalar(keys %uniq) <= 1){
+					print STDERR "Warning: the profile of ".$g." in replication ".$rep." is flat, the correlation coefficient (-c 1) is undefined for it; use -c 0 if the runs fail\n";
+				}
+			}
+		}
 	}
 	return ($gene_no,$total_rep,$total_point,%profile_expression);
 }
@@ -105,24 +155,43 @@ sub read_knowledge {
 	my $format_tag = 0;
 	my %knowledge;
 	my %fix_status_generation;
-	open KNOW,"<",$knowledge;
+	my %known_gene = map { $gene_index{$_} => 1 } keys %gene_index;
+	open KNOW,"<",$knowledge or die "cannot open the knowledge file ".$knowledge.": ".$!."\n";
+	my $line_no = 0;
 	while($line=<KNOW>){
+		$line_no++;
 		chomp $line;
+		$line =~ s/\r$//;#CRLF files
 		#print STDERR $line."\n";
-		if($line eq "TF\tGENE\tREGULATORY"){
+		if($line =~ /^TF\tGENE\tREGULATORY\s*$/){
 			print STDERR "format is correct\n";
 			$format_tag = 1;
 			next;
 		}
 		if($format_tag){
+			next if($line =~ /^\s*$/);
 			@ele = split(/\t/,$line);
+			if(scalar @ele < 3){
+				die "knowledge file ".$knowledge." line ".$line_no.": expected TF<tab>GENE<tab>REGULATORY\n";
+			}
 			my ($tf,$gene,$regulation) = ($ele[0],$ele[1],$ele[2]);
+			$regulation =~ s/^\s+|\s+$//g;
+			if($regulation !~ /^[?+\-0]$/){
+				die "knowledge file ".$knowledge." line ".$line_no.": regulation must be one of ? + - 0, got '".$regulation."'\n";
+			}
+			if(!$known_gene{$tf} || !$known_gene{$gene}){
+				print STDERR "Warning: knowledge file line ".$line_no.": ".$tf." or ".$gene." is not a gene of the profile, ignored\n";
+				next;
+			}
 			$knowledge{$tf}{$gene} = $regulation;
 			#print STDERR "TF:".$tf."\tGene:".$gene."\treg:".$regulation."\n";
 		}
 	}
 	close KNOW;
-	open INIT,">",$know_init_file;
+	if(!$format_tag){
+		die "knowledge file ".$knowledge." has no header line 'TF<tab>GENE<tab>REGULATORY'\n";
+	}
+	open INIT,">",$know_init_file or die "cannot write ".$know_init_file.": ".$!."\n";
 	for(my $i=0;$i<$total_gene_no;$i++){#each target gene
 		my $gene_name = $gene_index{$i};
 		my $gene_name_generation = $gene_name."_0";#0 is the initial generation
@@ -131,16 +200,10 @@ sub read_knowledge {
 		for(my $j=0;$j<$total_gene_no;$j++){#each TF
 			my $tf_name = $gene_index{$j};
 			#print STDERR "TF:".$tf_name."\n";
-			if($knowledge{$tf_name}{$gene_name} eq '0'){
-				print INIT "0 ";
-				$regulation_knowledge .= "0 ";
-			}elsif(!$knowledge{$tf_name}{$gene_name}){
-				print INIT "? ";
-				$regulation_knowledge .= "? ";
-			}else{
-				print INIT $knowledge{$tf_name}{$gene_name}." ";
-				$regulation_knowledge .= $knowledge{$tf_name}{$gene_name}." ";
-			}
+			my $v = $knowledge{$tf_name}{$gene_name};
+			$v = '?' if(!defined($v));
+			print INIT $v." ";
+			$regulation_knowledge .= $v." ";
 		}
 		$regulation_knowledge =~ s/ $//;
 		$fix_status_generation{$gene_name_generation} = $regulation_knowledge;
@@ -161,7 +224,7 @@ sub generate_h_knowledge {
 }
 sub generate_config {
 	my ($configure,$total_gene_no,$total_rep,$total_point,%profile_expression) = @_;
-	open CONF,">",$configure;
+	open CONF,">",$configure or die "cannot write the config file ".$configure.": ".$!."\n";
 	print CONF "num_var ".$total_gene_no."\n";
 	print CONF "num_tf ".$total_gene_no."\n";
 	print CONF "num_run ".$total_rep."\n";
@@ -205,27 +268,91 @@ sub generate_config {
 		#print CONF "\n";
 	}
 
-	close CONF;
+	close CONF or die "cannot write the config file ".$configure.": ".$!."\n";
+}
+#Read the result file of one gene (one line per run: parameters, fitness, one trailing field).
+#Only valid runs are returned: enough columns, finite regulation parameters and a finite fitness
+#(NaN/inf, e.g. from -c 1 with a flat profile, are skipped). Each run is [fitness, @columns].
+sub read_valid_runs {
+	my ($results) = @_;
+	my ($n_start,$n_end) = regulation_columns(scalar keys %gene_index);
+	my @runs;
+	open my $fh,"<",$results or die "cannot open the result file ".$results.": ".$!."\n";
+	while(my $line=<$fh>){
+		chomp $line;
+		$line =~ s/\r$//;
+		my @ele = split(/ /,$line);
+		next if(scalar @ele < ($n_end + 2));
+		next if(!is_finite($ele[scalar(@ele) - 2]));
+		my $ok = 1;
+		for(my $c=$n_start; $c<$n_end; $c++){
+			if(!is_finite($ele[$c])){ $ok = 0; last; }
+		}
+		next if(!$ok);
+		push @runs, [$ele[scalar(@ele) - 2], @ele];
+	}
+	close $fh;
+	return @runs;
+}
+#Fitness-weighted vote of all runs (not only the top ones) of the current iteration.
+#weight of a run = best fitness / fitness of the run (0..1]; a regulation is used when |value| > min.
+#VOTE_SCORE is sign-agnostic: it is the weighted fraction of runs in which the regulation is used,
+#whatever its sign (+ or -), so a regulation that flips sign between runs still scores high.
+#Returns a hash reference TF_GENE => score; the caller stores it in %vote_score when the regulation
+#gets fixed (the score is kept because the result file <gene>.txt is overwritten by the quantification).
+sub compute_vote_scores {
+	my ($gene_name,$iga_results,$total_gene_no) = @_;
+	my ($n_start,$n_end) = regulation_columns($total_gene_no);
+	my @runs = read_valid_runs($iga_results);
+	return {} if(!@runs);
+	my $best;
+	foreach my $r (@runs){ $best = $r->[0] if(!defined($best) || $r->[0] < $best); }
+	my $eps = 1e-12;
+	my ($wsum,@use) = (0);
+	foreach my $r (@runs){
+		my $w = ($best+$eps)/($r->[0]+$eps);
+		$wsum += $w;
+		for(my $c=$n_start; $c<$n_end; $c++){
+			$use[$c-$n_start] += $w if(abs($r->[$c+1]) > $min);#$r->[0] is the fitness
+		}
+	}
+	my %score;
+	for(my $c=$n_start; $c<$n_end; $c++){
+		my $tf_name = $gene_index{$c-$n_start};
+		$score{$tf_name."_".$gene_name} = sprintf("%.3f",($use[$c-$n_start]||0)/$wsum);
+	}
+	return \%score;
+}
+#Run the EMA of the given genes in parallel; die (naming the gene) if any of the runs failed.
+sub run_genes {
+	my ($genes_ref,$gen,$use_know,$use_config) = @_;
+	my @threads;
+	foreach my $i (@{$genes_ref}){
+		push @threads, [$i, threads->new(\&run_iga, $i,$gen,$use_know,$use_config)];
+		sleep(1) while(scalar threads->list(threads::running) >= $threads);
+	}
+	my @errors;
+	foreach my $t (@threads){
+		my $err = $t->[1]->join();
+		if(!defined($err)){
+			$err = $gene_index{$t->[0]}.": the EMA thread terminated abnormally";
+		}
+		push @errors, $err if($err ne "");
+	}
+	die join("\n",@errors)."\n" if(@errors);
 }
 sub run_quantification {
 	my ($gen,$use_know,$use_config,$total_gene_no,%confidence_level) = @_;
 	my $n_start;
 	my $n_end;
-	my @threads;
-	my $thr_count = 0;
 	my $gene_name;
 	($n_start,$n_end) = regulation_columns($total_gene_no);
 	my $final_results = $output_dir."/final_results.txt";
-	open FINAL,">",$final_results;
-	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\n";
-	for(my $i=0; $i<$total_gene_no; $i++){
-		$threads[$thr_count] = threads->new(\&run_iga, $i,$gen,$use_know,$use_config);
-		sleep(1) while(scalar threads->list(threads::running) >= $threads);
-		$thr_count++;
-	}
-	foreach my $i (@threads){
-		$i->join();
-	}
+	#NOTE: the quantification rewrites <gene>.txt; the vote scores were therefore computed (and stored in
+	#%vote_score) in the iteration where the regulation was fixed, they are not recomputed here.
+	run_genes([0..($total_gene_no-1)],$gen,$use_know,$use_config);
+	open FINAL,">",$final_results or die "cannot write ".$final_results.": ".$!."\n";
+	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\tVOTE_SCORE\n";
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$gene_name = $gene_index{$i};
 		my $iga_results = $output_dir."/".$gene_name.".txt";
@@ -247,10 +374,13 @@ sub run_quantification {
 				$role = 0;
 			}
 			my $relationship = $tf_name."_".$gene_name;
-			print FINAL $tf_name."\t".$gene_name."\t".$role."\t".$confidence_level{$relationship}."\n";
+			#regulations given by the knowledge file: confidence 1.000 (same as a user-given +/- in a partially unknown gene)
+			my $conf = defined($confidence_level{$relationship}) ? $confidence_level{$relationship} : "1.000";
+			my $vote = defined($vote_score{$relationship}) ? $vote_score{$relationship} : ($role eq "0" ? "0.000" : "1.000");#regulations given by the knowledge file have no vote
+			print FINAL $tf_name."\t".$gene_name."\t".$role."\t".$conf."\t".$vote."\n";
 		}
 	}
-	close FINAL;
+	close FINAL or die "cannot write ".$final_results.": ".$!."\n";
 }
 sub run_EMA {
 	my ($gen,$know_filename,$use_config,$total_gene_no,$fix_ref,$confidence_ref,$fix_status_ref,$fix_know_ref) = @_;
@@ -258,232 +388,211 @@ sub run_EMA {
 	my %confidence_level = %{$confidence_ref};
 	my %fix_status_generation = %{$fix_status_ref};
 	my %fix_know = %{$fix_know_ref};
-	my @threads;
-	my $thr_count = 0;
 	my $gene_name;
-	my $select_top_no = 5;
 	my $cutoff = 0.8;
 	my $use_know = $tmp_dir."/".$know_filename."_ForStep".$gen.".txt";
 	my $next_generation = $gen + 1;
 	my $new_know = $tmp_dir."/".$know_filename."_ForStep".$next_generation.".txt";
-	
+
 	print STDERR "Step2: GRN decomposition\n";
 	print STDERR "Step3: Parallel solving\n";
+	my @to_run;
 	for(my $i=0; $i<$total_gene_no; $i++){
 		if($fix_value[$i]){
 			$gene_name = $gene_index{$i};
 			print STDERR $gene_name ." is finished\n";
 		}else{
-			$threads[$thr_count] = threads->new(\&run_iga, $i,$gen,$use_know,$use_config);
-			sleep(1) while(scalar threads->list(threads::running) >= $threads);
-			$thr_count++;
+			push @to_run, $i;
 		}
 	}
-	foreach my $i (@threads){
-		$i->join();
-	}
+	run_genes(\@to_run,$gen,$use_know,$use_config);
 	print STDERR "Step4: Regulation determination\n";
-	open KNOW,">",$new_know;
+	open KNOW,">",$new_know or die "cannot write ".$new_know.": ".$!."\n";
+	my ($n_start,$n_end) = regulation_columns($total_gene_no);
 	for(my $i=0; $i<$total_gene_no; $i++){
 		$gene_name = $gene_index{$i};
+		if($fix_value[$i]){
+			#fully fixed gene: it was not run (no <gene>.txt), its knowledge is carried forward
+			#print STDERR "fix_knowledge{".$i."}:".$fix_know{$i}."\n";
+			print KNOW $fix_know{$i}."\n";
+			next;
+		}
 		my (@regulatory_p,@regulatory_n,@regulatory_z);
 		my $iga_results = $output_dir."/".$gene_name.".txt";
 		if(!-e $iga_results){
 			print STDERR $gene_name."'s iga result does not exist\n";die;
 		}
 		my @select_iga_results = select_results($select_top_no,$iga_results);#select top 5
+		#vote scores of this iteration (kept for the regulations fixed in this iteration)
+		my $vs = compute_vote_scores($gene_name,$iga_results,$total_gene_no);
 		for(my $j=0; $j<$total_gene_no; $j++){
 			$regulatory_p[$j] = 0;
 			$regulatory_n[$j] = 0;
 			$regulatory_z[$j] = 0;
 		}
-		{
-			#HFODE: n(i,j) ; S-system: g(i,j) (Hij are fixed to 0)
-			my ($n_start,$n_end) = regulation_columns($total_gene_no);
-			for(my $j=0; $j<$select_top_no; $j++){
-				my @iga = split(/\t/,$select_iga_results[$j]);
-				for(my $r=$n_start; $r<$n_end; $r++){
-					my $gene_no = $r-$n_start;
-					if($iga[$r] > 0){
-						if(abs($iga[$r]) > $min){
-							$regulatory_p[$gene_no]++;
-						}else{
-							$regulatory_z[$gene_no]++;
-						}
-					}elsif($iga[$r] < 0){
-						if(abs($iga[$r]) > $min){
-							$regulatory_n[$gene_no]++;
-						}else{
-							$regulatory_z[$gene_no]++;
-						}
+		#HFODE: n(i,j) ; S-system: g(i,j) (Hij are fixed to 0)
+		for(my $j=0; $j<$select_top_no; $j++){
+			my @iga = split(/\t/,$select_iga_results[$j]);
+			for(my $r=$n_start; $r<$n_end; $r++){
+				my $gene_no = $r-$n_start;
+				if($iga[$r] > 0){
+					if(abs($iga[$r]) > $min){
+						$regulatory_p[$gene_no]++;
 					}else{
 						$regulatory_z[$gene_no]++;
 					}
+				}elsif($iga[$r] < 0){
+					if(abs($iga[$r]) > $min){
+						$regulatory_n[$gene_no]++;
+					}else{
+						$regulatory_z[$gene_no]++;
+					}
+				}else{
+					$regulatory_z[$gene_no]++;
 				}
 			}
 		}
-		my $know_info;
-		if(!$fix_value[$i]){#only check unfixed gene
-			#print STDERR "fix[".$i."]:".$gene_name." is not fix\n";
+		my $gene_generation_key = $gene_name."_".$gen;
+		my $last_gene_generation_key = $gene_name."_".($gen - 1);
+		#knowledge of the previous iteration: fixed regulations (+,-,0) are inherited, only '?' can change
+		my @prev = split(/ /,$fix_status_generation{$last_gene_generation_key});
+		my @row;
+		for(my $j=0; $j<$total_gene_no; $j++){
+			my $tf_name = $gene_index{$j};
+			my $relationship = $tf_name."_".$gene_name;
+			if(defined($prev[$j]) && $prev[$j] ne "?"){
+				$row[$j] = $prev[$j];#Step7: inheritance, a fixed regulation cannot regress
+				next;
+			}
+			my $each_gene_knowledge;
+			if($regulatory_p[$j] && ($regulatory_p[$j]/$select_top_no) >= $cutoff){
+				$each_gene_knowledge = "+";
+			}
+			if($regulatory_n[$j] && ($regulatory_n[$j]/$select_top_no) >= $cutoff){
+				$each_gene_knowledge = "-";
+			}
+			if($regulatory_z[$j] && ($regulatory_z[$j]/$select_top_no) >= $cutoff){
+				$each_gene_knowledge = "0";
+			}
+			if(defined($each_gene_knowledge)){
+				if(!$confidence_level{$relationship}){
+					$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
+				}
+			}else{
+				$each_gene_knowledge = "?";
+			}
+			$row[$j] = $each_gene_knowledge;
+			#print STDERR "TF-gene:".$tf_name."-".$gene_name." regulation:".$each_gene_knowledge."\n";
+		}
+		my $know_info = join(" ",@row);
+		$fix_status_generation{$gene_generation_key} = $know_info;
+		print STDERR "Check the status of the determined regulations\n";
+		print STDERR "fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+		print STDERR "fix_status_generation{".$last_gene_generation_key."}:".$fix_status_generation{$last_gene_generation_key}."\n";
+		if($know_info eq $fix_status_generation{$last_gene_generation_key}){
+			print STDERR "Get the same fix regulations, so need to fix more regulations\n";
+			#fix the remaining '?' from the top-1 run (same abs(value) > min rule as the voting),
+			#the regulations that are already fixed are kept
+			my @select_top1 = select_results(1,$iga_results);#select top 1
+			my @iga = split(/\t/,$select_top1[0]);
 			for(my $j=0; $j<$total_gene_no; $j++){
-				my $tf_name = $gene_index{$j};
-				my $each_gene_knowledge;
-				my $relationship = $tf_name."_".$gene_name;
-				if($regulatory_p[$j]){
-					if(($regulatory_p[$j]/$select_top_no) >= $cutoff){
-						$each_gene_knowledge = "+ ";
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-						}
-					}
+				next if($row[$j] ne "?");
+				my $v = $iga[$n_start+$j];
+				my $role = "0";
+				if(abs($v) > $min){
+					$role = ($v > 0) ? "+" : "-";
 				}
-				if($regulatory_n[$j]){
-					if(($regulatory_n[$j]/$select_top_no) >= $cutoff){
-						$each_gene_knowledge = "- ";
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-						}
-					}
+				$row[$j] = $role;
+				my $relationship = $gene_index{$j}."_".$gene_name;
+				if(!$confidence_level{$relationship}){
+					$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
 				}
-				if($regulatory_z[$j]){
-					if(($regulatory_z[$j]/$select_top_no) >= $cutoff){
-						$each_gene_knowledge = "0 ";
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-						}
-					}
-				}
-				if(!$each_gene_knowledge){
-					$each_gene_knowledge = "? ";
-				}
-				#print STDERR "TF-gene:".$tf_name."-".$gene_name."\n";
-				#ßprint STDERR "regulation:".$each_gene_knowledge."\n";
-				#print STDERR "P:".$regulatory_p[$j]."\n";
-				#print STDERR "N:".$regulatory_n[$j]."\n";
-				#print STDERR "Z:".$regulatory_z[$j]."\n";
-				#print STDERR "=============================\n";
-				$know_info .= $each_gene_knowledge;
 			}
-			$know_info =~ s/ $//;
-		}else{
-			#print STDERR "fix[".$i."]:".$gene_name." is fix\n";
-			#print STDERR "fix_knowledge{".$i."}:".$fix_know{$i}."\n";
-			$know_info = $fix_know{$i};
-		}
-
-		
-		if(!$fix_value[$i]){#only check unfixed gene
-			my $gene_generation_key = $gene_name."_".$gen;
+			$know_info = join(" ",@row);
 			$fix_status_generation{$gene_generation_key} = $know_info;
-			my $last_generation = $gen - 1;
-			my $last_gene_generation_key = $gene_name."_".$last_generation;
-			print STDERR "Check the status of the determined regulations\n";
-			print STDERR "fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
-			print STDERR "fix_status_generation{".$last_gene_generation_key."}:".$fix_status_generation{$last_gene_generation_key}."\n";
-			if($fix_status_generation{$gene_generation_key} eq $fix_status_generation{$last_gene_generation_key}){
-				print STDERR "Get the same fix regulations, so need to fix more regulations\n";
-				my @select_iga_results = select_results(1,$iga_results);#select top 1
-				my @iga = split(/\t/,$select_iga_results[0]);
-				my $gene_knowledge;
-				{
-					my ($n_start,$n_end) = regulation_columns($total_gene_no);
-					my $role;
-					for(my $r=$n_start; $r<$n_end; $r++){
-						my $tf_index = $r-$n_start;
-						my $tf_name = $gene_index{$tf_index};
-						my $relationship = $tf_name."_".$gene_name;
-						if($iga[$r] > 0){
-							$role = "+";
-						}elsif($iga[$r] < 0){
-							$role = "-";
-						}else{
-							$role = 0;
-						}
-						if(!$confidence_level{$relationship}){
-							$confidence_level{$relationship} = sprintf("%.3f",1/$gen);
-						}
-						$gene_knowledge .= $role." ";
-					}
-				}
-				$gene_knowledge =~ s/ $//;
-				$know_info = $gene_knowledge;
-				$fix_status_generation{$gene_generation_key} = $know_info;
-				print STDERR "Update fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+			print STDERR "Update fix_status_generation{".$gene_generation_key."}:".$fix_status_generation{$gene_generation_key}."\n";
+		}
+		#vote score of every regulation that is fixed (first time seen as fixed) in this iteration
+		for(my $j=0; $j<$total_gene_no; $j++){
+			next if($row[$j] eq "?");
+			my $relationship = $gene_index{$j}."_".$gene_name;
+			if(!defined($vote_score{$relationship}) && defined($vs->{$relationship})){
+				$vote_score{$relationship} = $vs->{$relationship};
 			}
 		}
 		if(!$know_info){
 			print STDERR "no value, error\n";die;
-		}	
-		print KNOW $know_info."\n";	
+		}
+		print KNOW $know_info."\n";
 	}
+	close KNOW or die "cannot write ".$new_know.": ".$!."\n";
 	return (\%confidence_level, \%fix_status_generation);
 }
+#Returns "" on success, otherwise an error message naming the gene (die in a thread would be lost).
 sub run_iga {
 	my ($gene_no,$gen,$know,$conf) = @_;
-	my $src_dir = dirname($program);
-	if($model eq "HFODE"){
-		my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE";
-		if(!-e $ema_HFODE){
-			print STDERR $ema_HFODE." does not exist\n";die;
+	my $gene_name = $gene_index{$gene_no};
+	my $out = $output_dir."/".$gene_name.".txt";
+	my $ok = eval {
+		my $src_dir = dirname($program);
+		if($model eq "HFODE"){
+			my $ema_HFODE = $src_dir."/EMA_HFODE/EMA_HFODE";
+			die $ema_HFODE." does not exist\n" if(!-e $ema_HFODE);
+			die $conf." does not exist\n" if(!-e $conf);
+			my $command = shq($ema_HFODE)." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".shq($conf)." ".shq($know)." > ".shq($out);
+			#print STDERR $command."\n";
+			my $status = system($command);
+			die $gene_name.": ".$ema_HFODE." failed (exit status ".($status >> 8).", signal ".($status & 127).")\n" if($status != 0);
+		}else{
+			my $ema_ssystem = $src_dir."/EMA_SSYSTEM/EMA_ssystem";
+			die $ema_ssystem." does not exist, please run make in EMA_SSYSTEM\n" if(!-e $ema_ssystem);
+			die $conf." does not exist\n" if(!-e $conf);
+			#EMA_ssystem takes the Gij knowledge file and the Hij knowledge file (all 0)
+			#and writes the results to IGA_result<gene_no>_step<gen>.txt in the current directory (= tmp_dir, see main)
+			my $result = "IGA_result".$gene_no."_step".$gen.".txt";
+			unlink $result;
+			my $command = shq($ema_ssystem)." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".shq($conf)." ".shq($know)." ".shq($h_know_file)." > /dev/null";
+			my $status = system($command);
+			die $gene_name.": ".$ema_ssystem." failed (exit status ".($status >> 8).", signal ".($status & 127).")\n" if($status != 0);
+			if(!-s $result){
+				die $gene_name.": ".$ema_ssystem." produced no result (".$result.")\n";
+			}
+			#rename fails across filesystems, fall back to copy+unlink
+			move($result,$out) or die $gene_name.": cannot move ".$result." to ".$out.": ".$!."\n";
 		}
-		if(!-e $conf){
-			print STDERR $conf." does not exist\n";die;
+		die $gene_name.": result file ".$out." is missing or empty\n" if(!-s $out);
+		my $valid = scalar(read_valid_runs($out));
+		if($valid < $select_top_no){
+			die $gene_name.": only ".$valid." valid result lines (finite fitness, all parameters) in ".$out.", at least ".$select_top_no." are needed".(($cc == 1) ? " (-c 1 gives NaN for a flat profile, try -c 0)" : "")."\n";
 		}
-		my $gene_name = $gene_index{$gene_no};
-		my $command = $ema_HFODE." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." > ".$output_dir."/".$gene_name.".txt";
-		#print STDERR $command."\n";
-		`$command`;
-	}else{
-		my $ema_ssystem = $src_dir."/EMA_SSYSTEM/EMA_ssystem";
-		if(!-e $ema_ssystem){
-			print STDERR $ema_ssystem." does not exist, please run make in EMA_SSYSTEM\n";die;
-		}
-		if(!-e $conf){
-			print STDERR $conf." does not exist\n";die;
-		}
-		my $gene_name = $gene_index{$gene_no};
-		#EMA_ssystem takes the Gij knowledge file and the Hij knowledge file (all 0)
-		#and writes the results to IGA_result<gene_no>_step<gen>.txt in the current directory
-		my $result = "IGA_result".$gene_no."_step".$gen.".txt";
-		unlink $result;
-		my $command = $ema_ssystem." -i ".$gene_no." -n 30 -m 0 -G ".$generation_no." -I ".$gen." -F ".$fitness_type." -c ".$cc." ".$conf." ".$know." ".$h_know_file." > /dev/null";
-		`$command`;
-		if(!-s $result){
-			print STDERR $gene_name.": ".$ema_ssystem." produced no result (".$result.")\n";die;
-		}
-		rename($result,$output_dir."/".$gene_name.".txt") or die "cannot move ".$result."\n";
-	}
-
+		1;
+	};
+	return "" if($ok);
+	my $err = $@;
+	$err = "unknown error" if(!defined($err) || $err eq "");
+	chomp $err;
+	return $err;
 }
+#Top runs of a result file: the lines (tab separated parameters, without fitness) sorted by fitness.
+#Runs with equal fitness are all kept (ties keep the run order); invalid (NaN/inf/short) lines are skipped.
 sub select_results {
 	my ($top_no,$results) = @_;
-	my (@unsort_fitness,@sort_fitness,%fitness_value);
 	my @select_results;
-	my ($line,@ele);
-	my $no = 0;
-	open IGA,"<",$results;
-	while($line=<IGA>){
-		chomp $line;
-		@ele = split(/ /,$line);
-		my $all_parameter_no = scalar @ele;
-		my $iga_info;
-		for(my $j=0; $j< ($all_parameter_no - 2); $j++){
-			$iga_info .= $ele[$j]."\t";
-		}
-		$iga_info =~ s/\t$//;
-		my $fitness_value = $ele[$all_parameter_no - 2];
-		#print STDERR "fitness:".$fitness_value."\n";
-		$unsort_fitness[$no] = $fitness_value;
-		$fitness_value{$fitness_value} = $iga_info;
-		$no++;
+	my @runs = read_valid_runs($results);
+	if(scalar @runs < $top_no){
+		die "result file ".$results." has only ".scalar(@runs)." valid runs, ".$top_no." needed\n";
 	}
-	close IGA;
-	@sort_fitness = sort {$a <=> $b} @unsort_fitness;
+	my @pairs;#[fitness, line, run order]
+	my $no = 0;
+	foreach my $r (@runs){
+		my @ele = @{$r};
+		shift @ele;#fitness (already known)
+		my $all_parameter_no = scalar @ele;
+		push @pairs, [$r->[0], join("\t",@ele[0..($all_parameter_no - 3)]), $no++];
+	}
+	my @sorted = sort { $a->[0] <=> $b->[0] || $a->[2] <=> $b->[2] } @pairs;
 	for(my $i=0; $i<$top_no; $i++){
-		my $fitness_value = $sort_fitness[$i];
-		#print STDERR $i." fitness:".$fitness_value."\t".$fitness_value{$fitness_value}."\n";
-		$select_results[$i] = $fitness_value{$fitness_value};
-		#print STDERR "select result:".$select_results[$i]."\n";
+		$select_results[$i] = $sorted[$i]->[1];
 	}
 	return @select_results;
 }
@@ -504,6 +613,7 @@ sub check_knowledge {
 					$unfix_no++;
 				}
 			}
+			close KNOW;
 			if($unfix_no == 0){
 				$fix_know{$no} = $line;
 				return (1, \%fix_know);
@@ -515,6 +625,7 @@ sub check_knowledge {
 		$no++;
 	}
 	close KNOW;
+	die "knowledge file ".$know." has no row for gene ".$gene_no."\n";
 }
 sub main {
 	my $command;
@@ -526,10 +637,11 @@ sub main {
 	my $fix_ref;
 	my %fix_knowledge;
 	my $fix_knowledge_ref;
-	my $config = $expression."_config";
+	#generated side files go to the tmp folder of the output (no race between runs, input folder may be read-only)
+	my $config = $tmp_dir."/".basename($expression)."_config";
 	my @fix;
 	my $all_fix = 0;
-	my $total_fix_no = 0;	
+	my $total_fix_no = 0;
 	my %confidence;
 	my $confidence_ref;
 	if($knowledge_filename_tmp =~ /\./){
@@ -551,14 +663,15 @@ sub main {
 		$h_know_file = $tmp_dir."/h_knowledge_zero.txt";
 		generate_h_knowledge($total_gene,$h_know_file);
 	}
-	
-	open LOG,">",$log;
+
+	#the mapping RUN_ID->GENE_NAME was written by read_expression, append the run information
+	open LOG,">>",$log or die "cannot write ".$log.": ".$!."\n";
 	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
 	print LOG "Use know init:".$use_knowledge."\nUse config:".$config."\nUse input data:".$expression."\n";
 	print LOG "Use Fitness".$fitness_type."\nUse threads:".$threads."\nUse generation:".$generation_no."\nUse CC:".$cc."\nUse min:".$min."\n";
 	close LOG;
 
-	print STDERR "Step1: Initialisation\n";	
+	print STDERR "Step1: Initialisation\n";
 	for(my $i=0;$i<$total_gene;$i++){
 		($fix[$i], $fix_knowledge_ref) = check_knowledge($use_knowledge,$i,\%fix_knowledge);
 		%fix_knowledge = %{$fix_knowledge_ref};
@@ -568,7 +681,7 @@ sub main {
 	if($total_fix_no == $total_gene){
 		$all_fix = 1;
 	}
-	
+
 	#=======finished initial=================================================
 	if(!$all_fix){
 		do{
@@ -607,17 +720,7 @@ sub main {
 	}
 	print STDERR "Step8:GRN quantification\n";
 	run_quantification($generation,$final_knowledge,$config,$total_gene,%confidence);
-	
-	
-	$command = "mv calprofile* ".$tmp_dir;
-	print STDERR $command."\n";
-	`$command`;
-	$command = "mv progress* ".$tmp_dir;
-	print STDERR $command."\n";
-	`$command`;
-	$command = "mv printdata.txt ".$tmp_dir;
-	print STDERR $command."\n";
-	`$command`;
+	#calprofile*, progress* and printdata.txt written by the EMA are already in the tmp folder (main runs inside it)
 }
 #=========subroutine end================================
 GetOptions(
@@ -671,10 +774,15 @@ if(-d $output_dir){
 	}
 	$tmp_dir = $output_dir."/tmp";
 	if(!-d $tmp_dir){
-		my $cmd = "mkdir ".$tmp_dir;
-		print STDERR "create tmp folder:".$cmd."\n";
-		`$cmd`;
+		print STDERR "create tmp folder:".$tmp_dir."\n";
+		mkdir $tmp_dir or die "cannot create ".$tmp_dir.": ".$!."\n";
 	}
+	#absolute paths, because main() runs inside the tmp folder (the EMA programs write their side files to the cwd)
+	$expression = abs_path($expression);
+	$knowledge = abs_path($knowledge);
+	$output_dir = abs_path($output_dir);
+	$tmp_dir = abs_path($tmp_dir);
+	chdir($tmp_dir) or die "cannot enter ".$tmp_dir.": ".$!."\n";
 }else{
 	print STDERR "Directory of output does not exist\n";
 	die;

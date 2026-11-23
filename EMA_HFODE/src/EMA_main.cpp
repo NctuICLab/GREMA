@@ -11,6 +11,7 @@
 #include "Model.h"
 #include "Getknowledge.h"
 #include "Objfunction.h"
+#include <unistd.h>
 using namespace std;
 int iteration;
 int test_mode,cc_mode;
@@ -28,6 +29,11 @@ void parse_command_line(int argc, char **argv);
 int main(int argc, char **argv)  
 {
     parse_command_line(argc, argv);
+    if(POP_SIZE < 2 || ExecutionRuns < 1 || GENERATION < 1 || NO_timepoints < 1)
+    {
+        fprintf(stderr, "Invalid option value: need -P >= 2, -n >= 1, -G >= 1, -t >= 1\n");
+        exit(1);
+    }
     Getknowledge *knowledge;
     Model *hill;
     COrthogonalArray *OA;
@@ -42,12 +48,14 @@ int main(int argc, char **argv)
     PopFitness = new double[POP_SIZE];
     memset(PopFitness, 0, POP_SIZE*sizeof(double));
     unsigned int seed;
-    seed = (unsigned int)time(NULL);
+    //Processes started within the same second (e.g. one per gene) must not share a seed:
+    //mix the time with the process id and the gene index.
+    seed = (unsigned int)time(NULL) ^ ((unsigned int)getpid() << 16) ^ ((unsigned int)getpid())
+           ^ ((unsigned int)GeneIndex * 2654435761u);
     srand(seed);
     //char DataFileName[30];
     int i,j;
     int time_step;
-    int bestIndex;
     int NumReg = 0;
     int NumVars;
     int NumTFs;
@@ -69,19 +77,44 @@ int main(int argc, char **argv)
     //ptr2=fopen(str1,"w");
     sprintf(str2,"calprofile%d_step%d.txt",GeneIndex,iteration);
     ptr_EMAcalProfile=fopen(str2,"w");
+    if(ptr_EMAcalProfile == NULL)
+    {
+        fprintf(stderr, "cannot write %s\n", str2);
+        exit(1);
+    }
     
     hill = new Model();
     //strcpy(DataFileName,"./data/GNdata.txt");
     hill->SetGeneIndex(GeneIndex);
-    hill->ReadInitFromFile(argv[init_file_idx]);
+    if(hill->ReadInitFromFile(argv[init_file_idx]) < 0)
+    {
+        fprintf(stderr, "cannot read the data/config file %s\n", argv[init_file_idx]);
+        exit(1);
+    }
+    if(hill->NumVariables() <= 0 || hill->NumRuns() <= 0 || hill->NumTrials() <= 0)
+    {
+        fprintf(stderr, "invalid num_var/num_run/num_trial in %s\n", argv[init_file_idx]);
+        exit(1);
+    }
+    if(GeneIndex < 0 || GeneIndex >= hill->NumVariables())
+    {
+        fprintf(stderr, "gene index %d is out of range (num_var=%d)\n", GeneIndex, hill->NumVariables());
+        exit(1);
+    }
     if(hill->IsSimulated()){
         hill->CalAllExpValues(); //produce simulated data and perturbation set
     }
     ptr_Inputprofile=fopen("printdata.txt","w");
+    if(ptr_Inputprofile == NULL)
+    {
+        fprintf(stderr, "cannot write printdata.txt\n");
+        exit(1);
+    }
     hill->PrintAllExpXs(ptr_Inputprofile);//print expression data
     //exit(0);
     if(hill->IsSimulated()){time_step = hill->NumTrials()/NO_timepoints;}
     else{time_step = 1;}
+    if(time_step < 1) time_step = 1;//-t larger than the number of trials
     NumVars = hill->NumVariables();
     NumTFs = hill->NumTFsVariables();
     TimePoints = hill->NumTrials();
@@ -123,8 +156,9 @@ int main(int argc, char **argv)
     }
     ModelParameters = new double* [ExecutionRuns];
     for(i=0; i<ExecutionRuns; i++){
-        ModelParameters[i] = new double [NumOrigParam+1];
-        memset(ModelParameters[i], 0, (NumOrigParam+1)*sizeof(double));
+        //params, fitness, cc
+        ModelParameters[i] = new double [NumOrigParam+2];
+        memset(ModelParameters[i], 0, (NumOrigParam+2)*sizeof(double));
     }
     /*
     printf("initial the chromosome value\n");
@@ -168,23 +202,24 @@ int main(int argc, char **argv)
     
     
 //----------------------------------------------------------------------------
-    fprintf(ptr_EMAcalProfile,"Seed:%d\n",seed);
-    for(execution_times=0;execution_times<ExecutionRuns;execution_times++)
+    fprintf(ptr_EMAcalProfile,"Seed:%u\n",seed);
+    for(execution_times=0;execution_times<(unsigned int)ExecutionRuns;execution_times++)
     {
         if(knowledge->get_noregulation())
         {
             for(i=0; i<POP_SIZE; i++){
                 for(j=0; j<NumEncodeParam; j++){
                     Chromosomes[i][j] = 0;
-                    //printf("%f ",Chromosomes[i][j]);
                 }
-                //printf("\n");
             }
-            
+            //profile of the unregulated model (all parameters 0); the parameter line stays all 0
+            obj->EvaluateBest(0);
+            ModelParameters[execution_times][NumOrigParam+1] = 0;
         }else{
             iga->initialpop();
             iga->run(execution_times);
         }
+        //obj->cal_profile and ModelParameters[..][NumOrigParam+1] now belong to this run's best individual
         for(i=0; i<ExpRepeat; i++)
         {
             fprintf(ptr_EMAcalProfile,"N:%d Run:%d ",execution_times,i);
@@ -192,20 +227,19 @@ int main(int argc, char **argv)
             {
                 fprintf(ptr_EMAcalProfile,"%g ",obj->cal_profile[i][j]);
             }//end of NumTrials
-            bestIndex = iga->get_BestOne();
-            fprintf(ptr_EMAcalProfile,"%e %1.3f\n", PopFitness[bestIndex], obj->best_cc);
+            fprintf(ptr_EMAcalProfile,"%e %1.3f\n", ModelParameters[execution_times][NumOrigParam], ModelParameters[execution_times][NumOrigParam+1]);
         }
     }
     for(i=0;i<ExecutionRuns;i++)
     {
-        for(j=0;j<=NumOrigParam;j++)
+        for(j=0;j<=(int)NumOrigParam;j++)
         {
-            if(j==NumOrigParam)
+            if(j==(int)NumOrigParam)
                 printf("%e ",ModelParameters[i][j]);
             else
                 printf("%f ",ModelParameters[i][j]);
         }
-        printf("%1.3f\n",obj->best_cc);
+        printf("%1.3f\n",ModelParameters[i][NumOrigParam+1]);//cc of this run's best individual
     }
     
     if(ModelParameters)
@@ -295,10 +329,15 @@ void parse_command_line(int argc, char **argv)
 	i = 1;
         //======================//
     
-	while(1)
+	while(i < argc)
 	{
 		if(argv[i][0] != '-')
 			break;
+		if(i+1 >= argc)
+		{
+			fprintf(stderr,"Option %s needs a value!!\n",argv[i]);
+			exit_with_help();
+		}
 		switch(argv[i][1])
 		{
 			case 'i':

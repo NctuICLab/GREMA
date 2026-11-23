@@ -24,18 +24,21 @@ public:
     int PARAM_NUM;
     int NumGeneParam;
     int NO_POP;
-    double  best_cc;
+    double  last_cc;//correlation coefficient of the last evaluated model (over all replicates)
+    double  *RunCC;//[execution run] cc of the best model of every run, see RecordRun
     unsigned int    function_cost;
     double *GeneParamValues;
     double **ModelParameters;
     double  **cal_profile;
     void printCurrentModelParameters(double *genes,int type);
+    //Re-evaluate the best chromosome of an execution run and keep its cc (RunCC[run]) and the
+    //simulated profile of every replicate (cal_profile). function_cost is not changed.
+    void RecordRun(int run,double *genes);
 private:
     int g_NumConnections;
     int h_NumConnections;
     int time_interval;
     int runtime;
-    double min_fitness;
     int fitness_type;
 };
 

@@ -96,18 +96,18 @@ public:
     void SetGeneIndex(int index){
         m_GeneIndex = index;
     }
-    int b_upvalue() const { return b_up;}
-    int b_downvalue() const { return b_down;}
-    int TransMax_upvalue() const {return TransMax_up;}
-    int TransMax_downvalue() const {return TransMax_down;}
+    double b_upvalue() const { return b_up;}
+    double b_downvalue() const { return b_down;}
+    double TransMax_upvalue() const {return TransMax_up;}
+    double TransMax_downvalue() const {return TransMax_down;}
     //int beta_upvalue() const { return beta_up;}
     //int beta_downvalue() const { return beta_down; }
-    int n_upvalue() const { return n_up;}
-    int n_downvalue() const { return n_down;}
-    int k_upvalue() const { return k_up;}
-    int k_downvalue() const { return k_down;}
-    int degrade_upvalue() const { return degrade_up; }
-    int degrade_downvalue() const { return degrade_down; }
+    double n_upvalue() const { return n_up;}
+    double n_downvalue() const { return n_down;}
+    double k_upvalue() const { return k_up;}
+    double k_downvalue() const { return k_down;}
+    double degrade_upvalue() const { return degrade_up; }
+    double degrade_downvalue() const { return degrade_down; }
     //double deltat_upvalue() { return deltat_up;}
     //double deltat_downvalue() { return deltat_down;}
     //int GetIndex(){return m_GeneIndex;}
@@ -126,18 +126,18 @@ private:
     //range of variables
     //double deltat_up;
     //double deltat_down;
-    int b_up;
-    int b_down;
-    int TransMax_up;
-    int TransMax_down;
+    double b_up;
+    double b_down;
+    double TransMax_up;
+    double TransMax_down;
     //int beta_up;
     //int beta_down;
-    int n_up;
-    int n_down;
-    int k_up;
-    int k_down;
-    int degrade_up;
-    int degrade_down;
+    double n_up;
+    double n_down;
+    double k_up;
+    double k_down;
+    double degrade_up;
+    double degrade_down;
     
 	//for add perturbation set
 	bool DoPerturb; //do perturbation or not

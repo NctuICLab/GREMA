@@ -5,8 +5,23 @@ extern int ExecutionRuns;
 S_System_Divide::S_System_Divide()//initialization
 {
 	NumVar = 0;
+	NumTF = -1;//not given: all variables are TFs
 	NumRun = 0;
 	NumTrial = 0;
+	Nochange = 0;//<= 0: no early stop
+	sim_deltat = 0;
+    
+	//default search ranges (used when the configuration file does not give them)
+	alpha_up = 4;
+	alpha_down = 0;
+	beta_up = 4;
+	beta_down = 0;
+	g_up = 3;
+	g_down = -3;
+	h_up = 3;
+	h_down = -3;
+	deltat_up = 1;
+	deltat_down = 1;
     
 	delta_t = 0;
 	delta_s = 0;
@@ -121,7 +136,7 @@ S_System_Divide::~S_System_Divide()
 			}
 			delete [] calValues[i].X;
 			delete [] calValues[i].dX;
-            delete [] calValues[i].fitness[j];
+            delete [] calValues[i].fitness;
 		}
 		delete [] calValues;
 	}
@@ -189,9 +204,10 @@ void S_System_Divide::InitializeExp()
         
 		for(j = 0; j < NumVar; j++)
 		{
-			expValues[i].X[j] = new double[NumTrial+1];
-			expValues[i].dX[j] = new double[NumTrial+1];
-			expValues[i].fitness[j] = new double[NumTrial+1];
+			//NumTrial+1 entries: the simulated data fills X[NumTrial], for observed data it stays 0 and must not be used
+			expValues[i].X[j] = new double[NumTrial+1]();
+			expValues[i].dX[j] = new double[NumTrial+1]();
+			expValues[i].fitness[j] = new double[NumTrial+1]();
 		}
 	}
     //printf("InitializeExp3 NumVar=%d NumTF=%d NumRun=%d\n",NumVar,NumTF,NumRun);
@@ -208,15 +224,15 @@ void S_System_Divide::InitializeCal()
 	int i, j;
 	//Allocate memory space for new model
     //Allocate memory space for S-system model
-    calAlpha = new double[NumVar];
-    calBeta = new double[NumVar];
+    calAlpha = new double[NumVar]();
+    calBeta = new double[NumVar]();
     
     cal_g = new double* [NumVar];
     cal_h = new double* [NumVar];
     for(i = 0; i < NumVar; i++)
     {
-        cal_g[i] = new double[NumVar];
-        cal_h[i] = new double[NumVar];
+        cal_g[i] = new double[NumVar]();
+        cal_h[i] = new double[NumVar]();
     }
 	//Allocate memory space for Values
 	calValues = new Values[NumRun+NumPerturb];
@@ -228,9 +244,9 @@ void S_System_Divide::InitializeCal()
         
 		for(j = 0; j < NumVar; j++)
 		{
-			calValues[i].X[j] = new double[NumTrial+1];
-			calValues[i].dX[j] = new double[NumTrial+1];
-			calValues[i].fitness[j] = new double[NumTrial+1];
+			calValues[i].X[j] = new double[NumTrial+1]();
+			calValues[i].dX[j] = new double[NumTrial+1]();
+			calValues[i].fitness[j] = new double[NumTrial+1]();
 		}
 	}
     
@@ -258,15 +274,42 @@ double S_System_Divide::AddGaussianNoise(double stdev, double mean)
     return x;
 }
 
+//Read a whole line of any length (the old fixed BUF_SIZE buffers silently cut long lines).
+static bool read_whole_line(FILE* fp, std::vector<char>& line)
+{
+	char buf[BUF_SIZE];
+	bool got = false;
+	line.clear();
+	while(fgets(buf, sizeof(buf), fp))
+	{
+		size_t n = strlen(buf);
+		got = true;
+		line.insert(line.end(), buf, buf + n);
+		if(n > 0 && buf[n-1] == '\n')
+			break;
+	}
+	line.push_back('\0');
+	return got;
+}
+
+static void input_error(const char* filename, const char* what)
+{
+	fprintf(stderr, "%s: %s\n", filename, what);
+	exit(1);
+}
+
 int S_System_Divide::ReadInitFromFile(char* filename)
 {
 	int rtn = 1;
-	int i, j, r, run, t;
+	int i, j, r, t;
 	FILE* fp;
-	char line[BUF_SIZE];
+	std::vector<char> line;
 	char* token;
 	double** X;
 	double tmp;
+	char msg[256];
+	const char* sep_key = "\t\r\n #";
+	const char* sep_data = "\n\r\t #";
 	fp = fopen(filename, "r");
 	if(fp == NULL)
 	{
@@ -274,136 +317,74 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 		return -1;
 	}
     
-	while(fgets(line, BUF_SIZE-1, fp))
+	while(read_whole_line(fp, line))
 	{
 		if(line[0] == '#') //skip comment line
 			continue;//leave while loop
 		
 		//skip separate characters
-		token = strtok(line, "\t\r\n #"); 
+		token = strtok(&line[0], sep_key); 
 		if(token == NULL)
 			continue;
         
 		if(strlen(token) == 0)
 			continue;
         
-		if(strcmp(token, "num_var") == 0)
+		//every key but add_perturbation/ori_noise/init_*/list_data takes one numeric value
+		bool is_value_key = (strcmp(token, "num_var") == 0 || strcmp(token, "num_tf") == 0 || strcmp(token, "num_run") == 0
+			|| strcmp(token, "num_trial") == 0 || strcmp(token, "sim_deltat") == 0 || strcmp(token, "delta_s") == 0
+			|| strcmp(token, "nochange") == 0 || strcmp(token, "alpha_up") == 0 || strcmp(token, "alpha_down") == 0
+			|| strcmp(token, "beta_up") == 0 || strcmp(token, "beta_down") == 0 || strcmp(token, "g_up") == 0
+			|| strcmp(token, "g_down") == 0 || strcmp(token, "h_up") == 0 || strcmp(token, "h_down") == 0
+			|| strcmp(token, "deltat_up") == 0 || strcmp(token, "deltat_down") == 0);
+		char key[64];
+		strncpy(key, token, sizeof(key)-1);
+		key[sizeof(key)-1] = '\0';
+		if(is_value_key)
 		{
-			token = strtok(NULL, "\t\r\n #");
-			NumVar = atoi(token);
-            //printf("NumVar=%d\n",NumVar);
-        }
-        else if(strcmp(token, "num_tf") == 0)
-		{
-			token = strtok(NULL, "\t\r\n #");
-			NumTF = atoi(token);
-            //printf("NumTF=%d\n",NumTF);
+			token = strtok(NULL, sep_key);
+			if(token == NULL)
+			{
+				snprintf(msg, sizeof(msg), "no value for %s", key);
+				input_error(filename, msg);
+			}
+			if(strcmp(key, "num_var") == 0)		NumVar = atoi(token);
+			else if(strcmp(key, "num_tf") == 0)		NumTF = atoi(token);
+			else if(strcmp(key, "num_run") == 0)	NumRun = atoi(token);
+			else if(strcmp(key, "num_trial") == 0)	NumTrial = atoi(token);
+			else if(strcmp(key, "sim_deltat") == 0)	sim_deltat = atof(token);
+			else if(strcmp(key, "delta_s") == 0)	delta_s = atof(token);
+			else if(strcmp(key, "nochange") == 0)	Nochange = atoi(token);
+			//bounds are real numbers (they were parsed with atoi, which cut e.g. 0.5 to 0)
+			else if(strcmp(key, "alpha_up") == 0)	alpha_up = atof(token);
+			else if(strcmp(key, "alpha_down") == 0)	alpha_down = atof(token);
+			else if(strcmp(key, "beta_up") == 0)	beta_up = atof(token);
+			else if(strcmp(key, "beta_down") == 0)	beta_down = atof(token);
+			else if(strcmp(key, "g_up") == 0)		g_up = atof(token);
+			else if(strcmp(key, "g_down") == 0)		g_down = atof(token);
+			else if(strcmp(key, "h_up") == 0)		h_up = atof(token);
+			else if(strcmp(key, "h_down") == 0)		h_down = atof(token);
+			else if(strcmp(key, "deltat_up") == 0)	deltat_up = atof(token);
+			else if(strcmp(key, "deltat_down") == 0)	deltat_down = atof(token);
 		}
-		else if(strcmp(token, "num_run") == 0)
-		{
-			token = strtok(NULL, "\t\r\n #");
-			NumRun = atoi(token);
-            //printf("NumRun=%d\n",NumRun);
-		}
-		else if(strcmp(token, "num_trial") == 0)
-		{
-			token = strtok(NULL, "\t\r\n #");
-			NumTrial = atoi(token);
-            //printf("NumTrial=%d\n",NumTrial);
-		}
-		else if(strcmp(token, "sim_deltat") == 0)
-		{
-			token = strtok(NULL, "\t\r\n #");
-			sim_deltat = atof(token);
-            //printf("sim_deltat=%f\n",sim_deltat);
-		}
-        
-        else if(strcmp(token, "delta_s") == 0)
-		{
-			token = strtok(NULL, "\t\r\n #");
-			delta_s = atof(token);
-            //printf("delta_t=%f\n",delta_t);
-		}
-        else if(strcmp(token, "nochange") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            Nochange = atoi(token);
-            //printf("Nochange=%d\n",Nochange);
-        }
-        else if(strcmp(token, "alpha_up") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            alpha_up = atoi(token);
-            //printf("alpha_up=%f\n",alpha_up);
-        }
-        else if(strcmp(token, "alpha_down") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            alpha_down = atoi(token);
-            //printf("alpha_down=%f\n",alpha_down);
-        }
-        else if(strcmp(token, "beta_up") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            beta_up = atoi(token);
-            //printf("beta_up=%f\n",beta_up);
-        }
-        else if(strcmp(token, "beta_down") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            beta_down = atoi(token);
-            //printf("beta_down=%f\n",beta_down);
-        }
-        else if(strcmp(token, "g_up") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            g_up = atoi(token);
-            //printf("g_up=%f\n",g_up);
-        }
-        else if(strcmp(token, "g_down") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            g_down = atoi(token);
-            //printf("g_downn=%f\n",g_down);
-        }
-        else if(strcmp(token, "h_up") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            h_up = atoi(token);
-            //printf("h_up=%f\n",h_up);
-        }
-        else if(strcmp(token, "h_down") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            h_down = atoi(token);
-            //printf("h_downn=%f\n",h_down);
-        }
-        else if(strcmp(token, "deltat_up") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            deltat_up = atof(token);
-            //printf("deltat_up=%f\n",deltat_up);
-        }
-        else if(strcmp(token, "deltat_down") == 0)
-        {
-            token = strtok(NULL, "\t\r\n #");
-            deltat_down = atof(token);
-            //printf("deltat_down=%f\n",deltat_down);
-        }
 		else if(strcmp(token, "add_perturbation") == 0)
 		{
-			token = strtok(NULL, "\t\r\n #");
-			//for(i = 0; i < (int)strlen(token); i++)
-			//	token[i] = tolower(token[i]);
+			token = strtok(NULL, sep_key);
+			if(token == NULL)
+				input_error(filename, "no value for add_perturbation");
             
 			if(strcmp(token, "yes") == 0)
 			{
 				DoPerturb = true;
 				
-				token = strtok(NULL, "\t\r\n #");
+				token = strtok(NULL, sep_key);
+				if(token == NULL)
+					input_error(filename, "add_perturbation yes: missing number of perturbation sets");
 				NumPerturb = atoi(token);
                 
-				token = strtok(NULL, "\t\r\n #");
+				token = strtok(NULL, sep_key);
+				if(token == NULL)
+					input_error(filename, "add_perturbation yes: missing noise degree");
 				NoiseDegree = atof(token);
 			}
 			else
@@ -415,12 +396,16 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 		}
 		else if(strcmp(token, "ori_noise") == 0)
 		{
-			token = strtok(NULL, "\t\r\n #");
+			token = strtok(NULL, sep_key);
+			if(token == NULL)
+				input_error(filename, "no value for ori_noise");
 			if(strcmp(token, "yes") == 0)
 			{
 				IsAddOriNoise = true;
                 
-				token = strtok(NULL, "\t\r\n #");
+				token = strtok(NULL, sep_key);
+				if(token == NULL)
+					input_error(filename, "ori_noise yes: missing noise degree");
 				OriNoiseDegree = atof(token);
 			}
 			else
@@ -431,7 +416,6 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 		}
 		else if(strcmp(token, "init_data") == 0)//initial data(1st time point data)
 		{
-            //printf("init data\n");
 			if( (NumVar > 0 && (NumRun+NumPerturb) > 0 && NumTrial > 0) )
 			{
 				if(!isInitExpModel)
@@ -442,7 +426,7 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 			else
 			{
 				fprintf(stderr, "Error input data file, initalization of data failed!!!\n");
-				exit(-1);
+				exit(1);
 			}
             
 			//allocate memory space
@@ -453,10 +437,16 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 			//Read init. data
 			for(i = 0; i < NumRun; i++)
 			{
-				fgets(line, BUF_SIZE - 1, fp);
-                token = strtok(line, " \t\r\n");
+				if(!read_whole_line(fp, line))
+					input_error(filename, "init_data: unexpected end of file");
+				token = strtok(&line[0], " \t\r\n");
 				for(j = 0; j < NumVar; j++)
 				{
+					if(token == NULL)
+					{
+						snprintf(msg, sizeof(msg), "init_data: run %d has %d values, expected %d", i+1, j, NumVar);
+						input_error(filename, msg);
+					}
 					X[i][j] = atof(token);
 					token = strtok(NULL, " \t\r\n");
 				}
@@ -471,7 +461,6 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 		}
 		else if(strcmp(token, "init_parameters") == 0)
 		{
-            //printf("init parameters\n");
 			if( (NumVar > 0 && NumRun > 0 && NumTrial > 0) )
 			{
 				if(!isInitExpModel)
@@ -482,42 +471,44 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 			else
 			{
 				fprintf(stderr, "Error input data file, initalization of parameters failed!!!\n");
-				exit(-1);
+				exit(1);
 			}
             
 			for(i = 0; i < NumVar; i++)
 			{
-				fgets(line, BUF_SIZE-1, fp);
-                //alpha
-                token = strtok(line, "\n\r\t #");
-                expAlpha[i] = atof(token);
-                //printf("expAlpha[%d]=%f\n",i,expAlpha[i]);
-                //gij
-                for(j = 0; j < NumVar; j++)
-                {
-                    token = strtok(NULL, "\n\r\t #");
-                    exp_g[i][j] = atof(token);
-                    //printf("exp_g[%d][%d]=%f\n",i,j,exp_g[i][j]);
-                }
+				if(!read_whole_line(fp, line))
+					input_error(filename, "init_parameters: unexpected end of file");
+				//alpha
+				token = strtok(&line[0], sep_data);
+				if(token == NULL)
+					input_error(filename, "init_parameters: empty line");
+				expAlpha[i] = atof(token);
+				//gij
+				for(j = 0; j < NumVar; j++)
+				{
+					token = strtok(NULL, sep_data);
+					if(token == NULL)
+						input_error(filename, "init_parameters: too few values in a line");
+					exp_g[i][j] = atof(token);
+				}
                 
-                //hij
-                token = strtok(NULL, "\n\r\t #");
-                expBeta[i] = atof(token);
-                for(j = 0; j < NumVar; j++)
-                {
-                    token = strtok(NULL, "\n\r\t #");
-                    exp_h[i][j] = atof(token);
-                    //printf("exp_h[%d][%d]=%f\n",i,j,exp_h[i][j]);
-                }
-
-            }
+				//hij
+				token = strtok(NULL, sep_data);
+				if(token == NULL)
+					input_error(filename, "init_parameters: too few values in a line");
+				expBeta[i] = atof(token);
+				for(j = 0; j < NumVar; j++)
+				{
+					token = strtok(NULL, sep_data);
+					if(token == NULL)
+						input_error(filename, "init_parameters: too few values in a line");
+					exp_h[i][j] = atof(token);
+				}
+			}
 			isSimulated = true;
 		}
-        
-        
 		else if(strcmp(token, "list_data") == 0)
 		{
-            
 			if( (NumVar > 0 && NumRun > 0 && NumTrial > 0) )
 			{
 				if(!isInitExpModel)
@@ -528,49 +519,36 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 			else
 			{
 				fprintf(stderr, "Error input data file, initalization of parameters failed!!!\n");
-				exit(-1);
+				exit(1);
 			}
 			//for each run
 			for(r = 0; r < NumRun; r++)
 			{
-				fgets(line, BUF_SIZE-1, fp);
-				token = strtok(line, "\n\r\t #"); //id of r-th run
-				run = atoi(token);
+				if(!read_whole_line(fp, line))
+					input_error(filename, "list_data: unexpected end of file");
+				token = strtok(&line[0], sep_data); //id of r-th run
+				if(token == NULL)
+					input_error(filename, "list_data: missing run id");
 				//for each variable
 				for(i = 0; i < NumVar; i++)
 				{
-					
-                    fgets(line, BUF_SIZE-1, fp);
-                    token = strtok(line, "\n\r\t #"); //exprssion value at time 0
-                    tmp = atof(token);
-					if(tmp == 0)
-                    {
-                        expValues[r].X[i][0] = XMIN;
-                    }
-                    else
-                    {
-                        expValues[r].X[i][0] = tmp;
-                    }
-					//calValues[r].X[i][0] = atof(token);
-                    
-					//for each trial (1 ~ NumTrial)
-					for(j = 1; j < NumTrial; j++)
+					if(!read_whole_line(fp, line))
+						input_error(filename, "list_data: unexpected end of file");
+					token = strtok(&line[0], sep_data); //exprssion value at time 0
+					for(j = 0; j < NumTrial; j++)
 					{
-						token = strtok(NULL, "\n\r\t #"); //exprssion value at time j
-                        tmp = atof(token);
-                        if(tmp == 0)
-                        {
-                            expValues[r].X[i][j] = XMIN;
-                        }
-                        else
-                        {
-                            expValues[r].X[i][j] = tmp;
-                        }
+						if(token == NULL)
+						{
+							snprintf(msg, sizeof(msg), "list_data: run %d variable %d has %d values, expected %d", r+1, i+1, j, NumTrial);
+							input_error(filename, msg);
+						}
+						tmp = atof(token);
+						//zero (log) is replaced by XMIN
+						expValues[r].X[i][j] = (tmp == 0) ? XMIN : tmp;
+						token = strtok(NULL, sep_data); //exprssion value at time j+1
 					}
 				}
-                //printf("input gene expression\n");
 				isSetInitExpVal[r] = true;
-				//isSetInitCalVal[r] = true;
 			}
             
 			if(DoPerturb)
@@ -599,6 +577,21 @@ int S_System_Divide::ReadInitFromFile(char* filename)
 			continue;
 	}
 	fclose(fp);
+    
+	if(NumTF < 0)
+		NumTF = NumVar;//num_tf not given
+	if(!isInitExpModel)
+		input_error(filename, "no data (init_data / list_data) found");
+	if(NumTF > NumVar)
+	{
+		snprintf(msg, sizeof(msg), "num_tf=%d is larger than num_var=%d", NumTF, NumVar);
+		input_error(filename, msg);
+	}
+	for(r = 0; r < NumRun; r++)
+	{
+		if(!isSetInitExpVal[r])
+			input_error(filename, "the data of some runs are missing");
+	}
     
 	return rtn;
 }
@@ -1134,8 +1127,8 @@ void S_System_Divide::InitializeBufValues()
 			//bufValues[i].cal[j] = new double[NumTrial];
 			//bufValues[i].delta[j] = new double[NumTrial];
 			
-			bufValues[i].X[j] = new double[NumTrial];
-			bufValues[i].dX[j] = new double[NumTrial];
+			bufValues[i].X[j] = new double[NumTrial]();
+			bufValues[i].dX[j] = new double[NumTrial]();
 		}
 	}
 }
