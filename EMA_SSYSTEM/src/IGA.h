@@ -30,6 +30,8 @@ public:
     void initialIGA();
     void RangeVariable();
     void ChangeMutationRange();
+    //Mutation of a Gij/Hij/alpha/beta/delta_t value (fixloc: the gene of the Gij/Hij, negative = switched off).
+    //Location slots are NOT mutated here, see MutateLocation.
     double MutateOneValue(double oldValue,int index,int fixloc);
     int NO_GEN;
     int NO_POP;
@@ -55,6 +57,27 @@ private:
     void    Crossover();
     void    Mutation();
     void    CX_mutation(unsigned int index_one,unsigned int index_two);
+    //---- gene slots -----------------------------------------------------------------------
+    //w = 0: G (location,Gij) pairs at chromosome index 0.., w = 1: H pairs at h_start..
+    //A location code is the gene index (gene is on) or -gene (neg_zero for gene 0, gene is off).
+    //Slots 0..confirmed-1 are dedicated to the '+'/'-' genes and never change, so those
+    //regulators are in every individual (also after crossover/mutation) with the sign of the knowledge.
+    //The remaining slots hold the free '?' genes.
+    int     SlotCount(int w){return (w==0)?NO_g:NO_h;}
+    int     SlotBase(int w){return (w==0)?0:h_start;}
+    int     ConfirmedCount(int w){return (w==0)?knowledge->get_gConfirm():knowledge->get_hConfirm();}
+    int     PossibleCount(int w){return (w==0)?gloc_possible:hloc_possible;}
+    bool    SlotsFixed(int w){return (w==0)?knowledge->get_fixg():knowledge->get_fixh();}
+    bool    SlotsIdTF(int w){return (w==0)?knowledge->get_idgTF():knowledge->get_idhTF();}
+    static int  LocGene(double code);
+    static bool LocOn(double code){return code >= 0;}
+    static double LocCode(int gene,bool on);
+    void    BuildSortLoc();
+    void    InitLocations(int w,double *chrom);
+    double  RandomValue(int w,int gene,int index);
+    double  MutateLocation(int w,const double *chrom,int slot);
+    double  BestCC();
+    void    RepairLocations(double *chrom);
     unsigned int	*target;
     int 	NumCrossover;
     double	*Chromosomes;
@@ -74,7 +97,7 @@ private:
     bool same_interval;
     double *IntervalChangeByTemplate;
     double temperature,SA;
-    int **Loc_tmp, **eachpop_loc, **sortloc;
+    int **sortloc;
     double  *BestValueEachGeneration;
     unsigned int    *NumFitnessFunction;
     unsigned int    cx1,cx2;

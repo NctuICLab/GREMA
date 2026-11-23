@@ -23,6 +23,7 @@ int NO_timepoints;
 int init_file_idx;
 int g_knowledge_idx;
 int h_knowledge_idx;
+long user_seed = -1;//-s option
 //test
 void exit_with_help();
 void parse_command_line(int argc, char **argv);
@@ -36,7 +37,12 @@ int main(int argc, char **argv)
     Objfunction *obj;
     parse_command_line(argc, argv);
     unsigned int seed;
-    seed = (unsigned int)time(NULL);
+    //time(NULL) alone is the same for all the genes started in the same second (GREMA starts one
+    //process per gene): mix in the process id. -s gives a fixed seed.
+    if(user_seed >= 0)
+        seed = (unsigned int)user_seed;
+    else
+        seed = (unsigned int)time(NULL) ^ ((unsigned int)getpid() << 16);
     srand(seed);
     //char DataFileName[30];
     int i,j;
@@ -49,16 +55,33 @@ int main(int argc, char **argv)
     ptr2=fopen(str1,"w");
     sprintf(str2,"calprofile%d_step%d.txt",GeneIndex,iteration);
     ptr3=fopen(str2,"w");
+    if(ptr2 == NULL || ptr3 == NULL)
+    {
+        fprintf(stderr,"cannot write %s or %s\n",str1,str2);
+        return 1;
+    }
     
     s_system = new S_System_Divide();
     //strcpy(DataFileName,"./data/GNdata.txt");
-    s_system->ReadInitFromFile(argv[init_file_idx]);
+    if(s_system->ReadInitFromFile(argv[init_file_idx]) < 0)
+        return 1;
+    if(GeneIndex < 0 || GeneIndex >= s_system->NumVariables())
+    {
+        fprintf(stderr,"gene index %d is out of range (0..%d)\n",GeneIndex,s_system->NumVariables()-1);
+        return 1;
+    }
     s_system->CalAllExpValues(); //produce simulated data and perturbation set
     s_system->SetGeneIndex(GeneIndex);
     ptr1=fopen("printdata.txt","w");
+    if(ptr1 == NULL)
+    {
+        fprintf(stderr,"cannot write printdata.txt\n");
+        return 1;
+    }
     s_system->PrintAllExpXs(ptr1);//print expression data
     if(s_system->IsSimulated()){time_step = s_system->NumTrials()/NO_timepoints;}
     else{time_step = 1;}
+    if(time_step < 1){time_step = 1;}
     //============
     knowledge = new Knowledge();
     knowledge->NumVars = s_system->NumVariables();
@@ -96,7 +119,7 @@ int main(int argc, char **argv)
     
     
 //----------------------------------------------------------------------------
-    fprintf(ptr3,"Seed:%d\n",seed);
+    fprintf(ptr3,"Seed:%u\n",seed);
     for(execution_times=0;execution_times<ExecutionRuns;execution_times++)
     {
         iga->run(execution_times);
@@ -107,23 +130,29 @@ int main(int argc, char **argv)
             {
                 fprintf(ptr3,"%g ",obj->cal_profile[i][j]);
             }//end of NumTrials
-            fprintf(ptr3,"%e %1.3f\n",obj->EVAL[iga->get_BestOne()],obj->best_cc);
+            //fitness and cc of the best model of this execution run (cc over all replicates)
+            fprintf(ptr3,"%e %1.3f\n",obj->EVAL[iga->get_BestOne()],obj->RunCC[execution_times]);
         }
     }
     for(i=0;i<ExecutionRuns;i++)
     {
-        for(j=0;j<=NumGeneParam;j++)
+        for(j=0;j<=(int)NumGeneParam;j++)
         {
             if(j==NumGeneParam)
                 fprintf(ptr2,"%e ",obj->ModelParameters[i][j]);
             else
                 fprintf(ptr2,"%f ",obj->ModelParameters[i][j]);
         }
-        fprintf(ptr2,"%1.3f\n",obj->best_cc);
+        fprintf(ptr2,"%1.3f\n",obj->RunCC[i]);
     }
     fclose(ptr1);
     fclose(ptr2);
     fclose(ptr3);
+    delete iga;
+    delete OA;
+    delete obj;
+    delete knowledge;
+    delete s_system;
     return 0;
 }
 
@@ -149,7 +178,8 @@ void exit_with_help()
            "	1 -- test mode\n"
            "-c cc_mode : set the fitness function with cc or not (default 0)\n"
            "	0 -- without cc mode\n"
-           "	1 -- with cc mode\n"           );
+           "	1 -- with cc mode\n"
+           "-s seed : fixed random seed (default: time and process id)\n"           );
 	exit(1);
 }
 void parse_command_line(int argc, char **argv)
@@ -172,10 +202,15 @@ void parse_command_line(int argc, char **argv)
 	h_knowledge_idx = 4;
         //======================//
     	i = 1;
-	while(1)
+	while(i < argc)
 	{
 		if(argv[i][0] != '-')
 			break;
+		if(i+1 >= argc)
+		{
+			fprintf(stderr,"option %s needs a value!!\n",argv[i]);
+			exit_with_help();
+		}
 		switch(argv[i][1])
 		{
 			case 'i':
@@ -214,12 +249,21 @@ void parse_command_line(int argc, char **argv)
 				cc_mode = atoi(argv[i+1]);
 				i++;
 				break;
+			case 's':
+				user_seed = atol(argv[i+1]);
+				i++;
+				break;
 			default:
 				fprintf(stderr,"Unknown option!!\n");
 				exit_with_help();
 				break;
 		}
 		i++;
+	}
+	if(ExecutionRuns < 1 || GENERATION < 1 || POP_SIZE < 2 || NO_timepoints < 1)
+	{
+		fprintf(stderr,"-n and -G must be >= 1, -P >= 2 and -t >= 1\n");
+		exit(1);
 	}
 	if(i < argc)
 		init_file_idx = i++;
