@@ -87,6 +87,8 @@ Options:
        -g      [Generation] Number of generation, default is 1000
        -t      [No]    Number of threads
        -min    [value] ex: 0.01 [min value] default is 0
+       -perturb        [No] number of extra series made from the data by adding noise (HFODE only), default 0
+       -noise  [value] ex: 0.05 standard deviation of that noise relative to the value, needed with -perturb
        -h      Show the usage
 ```
 
@@ -101,6 +103,10 @@ Options:
 | `-f` | no | Fitness function (error between the observed and the simulated expression): `0` squared relative error, `1` squared error (default), `2` squared error of the derivative + squared relative error, `3` squared error of the derivative + squared error, `4` squared error of the derivative only. The derivative term is not computed at the last time point. On the IRMA data `3` was slightly better than the default, see [input/IRMA](input/IRMA/README.md). |
 | `-c` | no | `1` adds the correlation-coefficient term `1 - CC` to the fitness. Default `0`. |
 | `-min` | no | A parameter whose absolute value is not larger than this value is treated as "no regulation" when determining the regulations. Default `0`. |
+| `-perturb` | no | (HFODE only) Number of extra time series that are made from the data and fitted together with it, default `0` (off). Extra series number `i` is a copy of replicate `(i mod number of replicates)` with Gaussian noise added to every value (see `-noise`); with 3 replicates and `-perturb 9` every replicate is copied 3 times. The extra series are used like additional experiments in the fitness, the observed data are not changed. Needs `-noise`. |
+| `-noise` | with `-perturb` | Standard deviation of that noise **relative to the value**: a value `x` becomes a draw from a normal distribution with mean `x` and standard deviation `noise * x` (`0.05` = 5%), drawn independently for every gene and time point (also the first one). Must be larger than 0 when `-perturb` is used and has no effect without it. |
+
+`-perturb` says *how many* extra series are made, `-noise` *how strong* the noise in them is. The noise of each point is independent, so the extra series carry no information about the network beyond the uncertainty of the data. On the IRMA data (10 settings, 70 runs) they did not improve the ranking of the regulations, see [experiments/IRMA_REPORT.md](experiments/IRMA_REPORT.md).
 
 ### Regulator slots and `GREMA_SLOT_DIV`
 
