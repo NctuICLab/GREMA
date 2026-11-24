@@ -21,7 +21,7 @@ public:
     bool get_noregulation(){return no_regulations;}
     //Number of gene slots (location + value pairs) of the chromosome and how they are used:
     //  fixed row (no '?')            : NumConnections = possible, every regulator is kept
-    //  random subset (idTF == false) : NumConnections = max(max_reg,confirmed) slots; the first
+    //  random subset (idTF == false) : NumConnections = confirmed + free slots (round(possible/3), see set_connections); the first
     //                                  'confirmed' slots are dedicated to the '+'/'-' genes, the others
     //                                  hold distinct randomly chosen '?' genes
     //  otherwise (idTF == true)      : one slot per possible gene, the sign of the location code
@@ -34,7 +34,7 @@ public:
     
 private:
     
-    void    set_connections(int possible,int confirmed,int max_reg,bool fixed,int &connections,bool &idTF);
+    void    set_connections(int possible,int confirmed,bool fixed,int &connections,bool &idTF);
     int **range;
     int **choose;
     int **LocMask;
