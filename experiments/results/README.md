@@ -24,3 +24,36 @@ python3 experiments/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv
 `irma_gp_inputs.tgz` holds the sampled GP trajectories that were used as inputs (`auto/seed<S>/<on|off>/in_<M>.txt`,
 `lat/...`); they were made with `experiments/scripts/gp_auto.py` and `gp_v2.py` (seeds 0-4, 10 trajectories each).
 Use the same input files if you want to re-run with different options.
+
+## `sos_results.tgz` (SOS follow-up analyses, see `experiments/SOS_REPORT.md`)
+
+`final_results.txt` of every run, one directory per setting, `<setting>/<run>/final_results.txt`; all runs finished.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `sos4` | SOS, 4 experiments as replicates, diagonal `?`, `-g 500`: `f1_r1-5`, `f3_r1-5` (T1; gold `input/SOS/SOS_GoldStandard.tsv`, `--self-pairs`) | 10 |
+| `sos4_g1000` | as `sos4` with `-g 1000` | 10 |
+| `sos4_selfrep` | as `sos4` `-f 1`, knowledge file `know_G2G2_minus.txt` (LexA -> LexA fixed to `-`; diagnostic only) | 5 |
+| `sos4_slot1`, `sos4_slot4` | as `sos4` `-f 1` with `GREMA_SLOT_DIV=1` (8 regulator slots) and `=4` (2 slots) | 5 + 5 |
+| `sim_sos` | simulated SOS data, hidden LexA protein (`sim<seed>.txt` made by `sim_sos.py <seed>`), `-f 1`, runs `f1_s1-5`, evaluate with the SOS gold standard | 5 |
+| `sim_sos_p` | same simulation with the protein measured as G9 (`sim_sos_p.py`), 9 x 9 knowledge `know9.txt`, gold `gold9.tsv` (G9 -> G1..G8), runs `f1_s1-5`, `f3_s1-5` | 10 |
+
+## `irma_t2_t3_results.tgz` (IRMA perturbation sets and number of generations, see `experiments/IRMA_REPORT.md`)
+
+`<setting>/<run>/final_results.txt`; for `gen` and `gen500` also `tmp/progress*_step1.txt` (input of `convergence.py`). All runs finished.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `pt` | `-perturb 9 -noise N`, `-g 500`, names `n<noise>_f<fitness>_<on|off>_r<rep>`: noise 0.05 and 0.1, `-f 1` / `-f 3`, on / off, r1-r5; noise 0.1 switch-off also r6-r20 | 70 |
+| `gen` | `g<G>_f<fitness>_<on|off>_r<rep>`, `-g 1000` and `-g 2000`, `-f 1` / `-f 3`, on / off, r1-r10 | 80 |
+| `gen500` | the same with `-g 500` (rerun, to have the progress files) | 40 |
+
+## `hackett_results.tgz` (TF-induction time courses of Hackett et al. 2020, see `experiments/HACKETT_REPORT.md`)
+
+Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `names.tsv` G<i> -> ORF / symbol / TF, `summary.txt`) and `final_results.txt` of every run; all runs finished. Evaluate with `--gold <design>/gold.tsv`.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `small` | 4 TFs, 23 variables, 5 min grid (19 points), gold network 1 (4 edges), `-f 1`: `runs` = 4 slots per gene (all TFs), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=2`) | 3 + 3 |
+| `small15` | the same on the 15 min grid (7 points) | 3 + 3 |
+| `net3_p10_s15` | 10 TFs, 56 variables, 15 min grid, gold network 3 (18 edges): `runs` = 10 regulator slots per gene, `runs_slot3` = 3 slots (`GREMA_SLOT_DIV=3`), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=5`) | 3 + 3 + 3 |
