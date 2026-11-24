@@ -1,6 +1,7 @@
 #include "Define.h"
 #include "Getknowledge.h"
 #include <string>
+#include <cstdlib>
 #define Debug_mode 0
 using namespace std;
 Getknowledge::Getknowledge()
@@ -187,7 +188,11 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
     {
         int freeall = possible - regulations;
         int freeslots = 0;
-        val = possible/3.0;
+        //experiment: GREMA_SLOT_DIV (default 3) divides the number of candidates to get the slot cap
+        double slot_div = 3.0;
+        if(getenv("GREMA_SLOT_DIV") && atof(getenv("GREMA_SLOT_DIV")) > 0)
+            slot_div = atof(getenv("GREMA_SLOT_DIV"));
+        val = possible/slot_div;
         int cap = (int)(val + 0.5);
         if(freeall > 0)
         {

@@ -24,3 +24,16 @@ python3 experiments/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv
 `irma_gp_inputs.tgz` holds the sampled GP trajectories that were used as inputs (`auto/seed<S>/<on|off>/in_<M>.txt`,
 `lat/...`); they were made with `experiments/scripts/gp_auto.py` and `gp_v2.py` (seeds 0-4, 10 trajectories each).
 Use the same input files if you want to re-run with different options.
+
+## `sos_results.tgz` (SOS follow-up analyses, see `experiments/SOS_REPORT.md`)
+
+`final_results.txt` of every run, one directory per setting, `<setting>/<run>/final_results.txt`; all runs finished.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `sos4` | SOS, 4 experiments as replicates, diagonal `?`, `-g 500`: `f1_r1-5`, `f3_r1-5` (T1; gold `input/SOS/SOS_GoldStandard.tsv`, `--self-pairs`) | 10 |
+| `sos4_g1000` | as `sos4` with `-g 1000` | 10 |
+| `sos4_selfrep` | as `sos4` `-f 1`, knowledge file `know_G2G2_minus.txt` (LexA -> LexA fixed to `-`; diagnostic only) | 5 |
+| `sos4_slot1`, `sos4_slot4` | as `sos4` `-f 1` with `GREMA_SLOT_DIV=1` (8 regulator slots) and `=4` (2 slots) | 5 + 5 |
+| `sim_sos` | simulated SOS data, hidden LexA protein (`sim<seed>.txt` made by `sim_sos.py <seed>`), `-f 1`, runs `f1_s1-5`, evaluate with the SOS gold standard | 5 |
+| `sim_sos_p` | same simulation with the protein measured as G9 (`sim_sos_p.py`), 9 x 9 knowledge `know9.txt`, gold `gold9.tsv` (G9 -> G1..G8), runs `f1_s1-5`, `f3_s1-5` | 10 |
