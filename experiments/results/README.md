@@ -57,3 +57,14 @@ Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `nam
 | `small` | 4 TFs, 23 variables, 5 min grid (19 points), gold network 1 (4 edges), `-f 1`: `runs` = 4 slots per gene (all TFs), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=2`) | 3 + 3 |
 | `small15` | the same on the 15 min grid (7 points) | 3 + 3 |
 | `net3_p10_s15` | 10 TFs, 56 variables, 15 min grid, gold network 3 (18 edges): `runs` = 10 regulator slots per gene, `runs_slot3` = 3 slots (`GREMA_SLOT_DIV=3`), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=5`) | 3 + 3 + 3 |
+
+## `ssystem_slots_results.tgz` (regulator slots on IRMA and the direction of the S-system output, see `experiments/SSYSTEM_SLOTS_REPORT.md`)
+
+`<setting>/<run>/final_results.txt`; all runs finished. Evaluate with `input/IRMA/IRMA_GoldStandard.tsv`.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `hfode_slots` | HFODE, IRMA, `-f 1`, `-g 500`: `div<d>_f1_<on|off>_r<rep>`, `GREMA_SLOT_DIV=d` (`d` = 1: 4 slots, 2: 2 slots; the default 1 slot is `irma_fixed` of `final_results.tgz`) | 40 |
+| `ssystem_slots` | S-system with the slot rule of HFODE, IRMA, `-f 1`: `div0` = default (1 slot), `div2` (2 slots), `div1` (4 slots) | 60 |
+| `ssystem_old` | S-system with the old rule `round(N/3)` (2 slots on IRMA), `-f 1`, `ss_f1_<on|off>_r<rep>` | 20 |
+| `orient` | simulated data with the IRMA topology (`sim<seed>.txt` from `sim_gen.py <seed> 3 0.02`), `hfode_s<seed>`, `ssystem_s<seed>` (old rule), `-f 1`; evaluate with the IRMA gold standard | 10 |
