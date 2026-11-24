@@ -110,7 +110,7 @@ Options:
 
 ### Regulator slots and `GREMA_SLOT_DIV`
 
-(HFODE) Every gene has a fixed number of regulator *slots* in a chromosome of the genetic algorithm: the number of regulators that are searched for this gene at the same time.
+Every gene has a fixed number of regulator *slots* in a chromosome of the genetic algorithm: the number of regulators that are searched for this gene at the same time.
 A slot can still end up with "no regulation" (a Hill coefficient not larger than `-min`), so the slots are an upper limit, not the number of regulators in the result.
 Regulators known to act (`+` or `-` in the knowledge file) always get a slot. For the unknown (`?`) ones (`candidates` below = the number of non-`0` entries for the gene):
 
@@ -136,14 +136,14 @@ GREMA_SLOT_DIV=5 perl GREMA_main.pl -i input.txt -k knowledge_tfs_only.txt -o ou
 What the experiments showed (details in [experiments/SOS_REPORT.md](experiments/SOS_REPORT.md) and [experiments/HACKETT_REPORT.md](experiments/HACKETT_REPORT.md)): with more slots more regulations are found, but most of the additional ones are false.
 SOS (8 candidates, 8 / 3 / 2 slots): FP 33.6 / 21.8 / 14.8 and TP 6.4 / 6.0 / 3.4, the default (3) had the best AUROC. 56 genes with 10 TFs as regulators (10 / 3 / 2 slots): FP 267 / 154 / 98, TP 13.7 / 10.3 / 9.0, vote AUROC 0.67 / 0.70 / 0.72.
 This was seen on few runs and two data sets; if the true regulation is sparse (a few regulators per gene) a smaller number of slots is worth trying, but there is no setting that is best everywhere.
-The S-system model always uses `N/3` regulator slots and ignores `GREMA_SLOT_DIV`.
+The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_SLOT_DIV` (only the production term `g_ij` has slots, the `h_ij` are fixed to 0). Before this version it always used `round(N/3)` slots, with `N` the number of genes, and could not be changed: on IRMA (4 candidates per gene) that was 2 slots, now it is 1 (`round(4/3)`).
 
 ## Models
 
 | Model | Option | Executable | Notes |
 |-------|--------|------------|-------|
 | Hill function-based ODE | `-m HFODE` (default) | `EMA_HFODE/EMA_HFODE` | Regulations are determined from the sign of the Hill coefficients `n_ij`. |
-| S-system | `-m s-system` | `EMA_SSYSTEM/EMA_ssystem` | Regulations are determined from the sign of the kinetic orders `g_ij`. The `h_ij` are fixed to 0 (the degradation term is a constant `beta`), and at most `N/3` regulators are searched for each gene (`N` is the number of genes). |
+| S-system | `-m s-system` | `EMA_SSYSTEM/EMA_ssystem` | Regulations are determined from the sign of the kinetic orders `g_ij`. The `h_ij` are fixed to 0 (the degradation term is a constant `beta`), and the number of regulators searched for each gene at the same time follows the rules of [Regulator slots](#regulator-slots-and-grema_slot_div). |
 
 ## Run GREMA
 

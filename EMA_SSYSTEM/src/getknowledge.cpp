@@ -2,6 +2,7 @@
 #include "getknowledge.h"
 #include <string>
 #include <vector>
+#include <cstdlib>
 #define Debug_mode 0
 using namespace std;
 Knowledge::Knowledge()
@@ -111,33 +112,45 @@ static void read_knowledge_matrix(const char *name, char **M, int rows, int cols
     }
 }
 //Decide how many gene slots the chromosome has, see getknowledge.h
-void Knowledge::set_connections(int possible,int confirmed,int max_reg,bool fixed,int &connections,bool &idTF)
+//Same rule as the HFODE solver (EMA_HFODE/src/Getknowledge.cpp): '+'/'-' regulators always get a slot; for the '?' ones
+//  - the candidates are unknown (every gene, or every gene but the diagonal, may regulate): round(possible/3) slots in total
+//    (a random subset of the candidates in each run), at least one free slot
+//  - a restricted candidate list (some regulators are '0'): one slot for every candidate
+//The environment variable GREMA_SLOT_DIV replaces the divisor 3 and also applies to a restricted list.
+void Knowledge::set_connections(int possible,int confirmed,bool fixed,int &connections,bool &idTF)
 {
-    int limit = (max_reg > confirmed) ? max_reg : confirmed;//max_reg only limits the additional free regulators
-    if(fixed)
+    int freeall = possible - confirmed;
+    if(fixed || freeall <= 0)
     {
         connections = possible;//keep every regulator of a fully determined row
         idTF = true;
+        return;
     }
-    else if((NumVars == NumTFs) && (possible >= limit))
+    double slot_div = 0;
+    if(getenv("GREMA_SLOT_DIV") && atof(getenv("GREMA_SLOT_DIV")) > 0)
+        slot_div = atof(getenv("GREMA_SLOT_DIV"));
+    bool unknown_candidates = (NumVars == NumTFs) && ((possible == NumVars) || (possible == NumVars - 1));
+    double div = (slot_div > 0) ? slot_div : (unknown_candidates ? 3.0 : 0);
+    if(div > 0)
     {
-        connections = limit;
-        idTF = false;
+        int freeslots = (int)(possible/div + 0.5) - confirmed;
+        if(freeslots < 1) freeslots = 1;
+        if(freeslots > freeall) freeslots = freeall;
+        if(unknown_candidates || freeslots < freeall)
+        {
+            connections = confirmed + freeslots;
+            idTF = false;
+            return;
+        }
     }
-    else
-    {
-        connections = possible;
-        idTF = true;
-    }
+    connections = possible;
+    idTF = true;
 }
 void Knowledge::Readknowledge(int GeneIndex, char* gknow, char* hknow)
 {
     char** X;
     char** Y;
-    int i, j, max_reg;
-    float val;
-    val = NumVars/3.0;
-    max_reg = (int)(val + 0.5);
+    int i, j;
     if(GeneIndex < 0 || GeneIndex >= NumVars)
     {
         fprintf(stderr, "gene index %d is out of range (0..%d)\n", GeneIndex, NumVars-1);
@@ -215,9 +228,7 @@ void Knowledge::Readknowledge(int GeneIndex, char* gknow, char* hknow)
         //printf("no regulation\n");
     }
     if(g_possible == g_regulations){fix_gknowledge=true;}
-    set_connections(g_possible,g_regulations,max_reg,fix_gknowledge,g_NumConnections,id_gTF);
-    if(g_regulations > max_reg)
-        printf("g: %d confirmed regulators exceed max_reg=%d, all of them are kept\n",g_regulations,max_reg);
+    set_connections(g_possible,g_regulations,fix_gknowledge,g_NumConnections,id_gTF);
     printf("Number of g_NumConnections:%d\n",g_NumConnections);
     //printf("g_confirm=%d\n",g_regulations);
     //PAUSE
@@ -267,7 +278,7 @@ void Knowledge::Readknowledge(int GeneIndex, char* gknow, char* hknow)
     
     
     
-    set_connections(h_possible,h_regulations,max_reg,fix_hknowledge,h_NumConnections,id_hTF);
+    set_connections(h_possible,h_regulations,fix_hknowledge,h_NumConnections,id_hTF);
     printf("Number of h_NumConnections:%d\n",h_NumConnections);
     //printf("h_confirm=%d\n",h_regulations);
     for(i = 0; i < NumVars; i++)
