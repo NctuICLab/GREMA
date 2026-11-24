@@ -21,6 +21,8 @@ my $program = abs_path($0);
 #======================
 my %gene_index;
 my $min = 0;
+my $perturb_no = 0;	# number of extra series made from the data by adding noise (HFODE only)
+my $noise_degree = 0;	# standard deviation of that noise, relative to the value
 my $select_top_no = 5;#number of top runs that vote for a regulation
 my $h_know_file;#S-system only
 my %vote_score;#TF_GENE => fitness-weighted fraction of the runs of the first iteration that use the regulation
@@ -39,6 +41,8 @@ Options:
 	-g	[Generation] Number of generation, default is 1000
 	-t	[No]	Number of threads
 	-min	[value] ex: 0.01 [min value] default is 0
+	-perturb	[No] number of extra series made from the data by adding noise (HFODE only), default 0
+	-noise	[value] ex: 0.05 standard deviation of that noise relative to the value, needed with -perturb
 	-h	Show the usage
 	";
 }
@@ -229,6 +233,7 @@ sub generate_config {
 	print CONF "num_tf ".$total_gene_no."\n";
 	print CONF "num_run ".$total_rep."\n";
 	print CONF "num_trial ".$total_point."\n";
+	print CONF "add_perturbation yes ".$perturb_no." ".$noise_degree."\n" if($perturb_no > 0);
 	print CONF "nochange 1000\n";
 	if($model eq "HFODE"){
 		print CONF "delta_t 1\n";
@@ -733,9 +738,19 @@ GetOptions(
 	'f=i'	=>\$fitness_type,
 	'c=i'	=>\$cc,
 	'min=s'	=>\$min,
+	'perturb=i'	=>\$perturb_no,
+	'noise=f'	=>\$noise_degree,
 	'h'	=>\$help,
 ); 
 if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
+	Usage();die;
+}
+if($perturb_no < 0 || $noise_degree < 0 || ($perturb_no > 0 && $noise_degree <= 0)){
+	print STDERR "-perturb must be >= 0 and needs -noise > 0\n";
+	Usage();die;
+}
+if($perturb_no > 0 && $model ne "HFODE"){
+	print STDERR "-perturb is only supported with the HFODE model\n";
 	Usage();die;
 }
 if($min < 0){

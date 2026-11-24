@@ -118,7 +118,8 @@ int main(int argc, char **argv)
     NumVars = hill->NumVariables();
     NumTFs = hill->NumTFsVariables();
     TimePoints = hill->NumTrials();
-    ExpRepeat = hill->NumRuns();
+    //the perturbation sets (add_perturbation) are used like additional experiments
+    ExpRepeat = hill->NumRuns() + hill->NumPerturbationSet();
     range = new int [NumVars];
     memset(range,0,NumVars*sizeof(int));
     choose = new int [NumVars];

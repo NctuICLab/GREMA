@@ -49,7 +49,7 @@ Each run already performs the 30-run voting internally, so repeating the whole r
 
 ## Experiments on IRMA
 
-All numbers below are from HFODE with `-g 500` unless stated otherwise, evaluated against `IRMA_GoldStandard.tsv` (8 true edges among 25 possible directed edges; random AUROC 0.5, AUPRC 0.4). The scripts used for the experiments below (simulation, augmentation, evaluation) are not included in this repository. There are only 2 data sets and 8 true edges, so differences of about 0.05 in AUROC should not be over-interpreted.
+All numbers below are from HFODE with `-g 500` unless stated otherwise, evaluated against `IRMA_GoldStandard.tsv` (8 true edges among 25 possible directed edges; random AUROC 0.5, AUPRC 0.4). The main scripts (running, evaluation, GP augmentation, simulation) are in `experiments/scripts/`, the archived results of the runs and a description of what remains to be run are in `experiments/`. There are only 2 data sets and 8 true edges, so differences of about 0.05 in AUROC should not be over-interpreted.
 
 ### HFODE vs S-system
 
