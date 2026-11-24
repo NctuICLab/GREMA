@@ -37,3 +37,13 @@ Use the same input files if you want to re-run with different options.
 | `sos4_slot1`, `sos4_slot4` | as `sos4` `-f 1` with `GREMA_SLOT_DIV=1` (8 regulator slots) and `=4` (2 slots) | 5 + 5 |
 | `sim_sos` | simulated SOS data, hidden LexA protein (`sim<seed>.txt` made by `sim_sos.py <seed>`), `-f 1`, runs `f1_s1-5`, evaluate with the SOS gold standard | 5 |
 | `sim_sos_p` | same simulation with the protein measured as G9 (`sim_sos_p.py`), 9 x 9 knowledge `know9.txt`, gold `gold9.tsv` (G9 -> G1..G8), runs `f1_s1-5`, `f3_s1-5` | 10 |
+
+## `irma_t2_t3_results.tgz` (IRMA perturbation sets and number of generations, see `experiments/IRMA_REPORT.md`)
+
+`<setting>/<run>/final_results.txt`; for `gen` and `gen500` also `tmp/progress*_step1.txt` (input of `convergence.py`). All runs finished.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `pt` | `-perturb 9 -noise N`, `-g 500`, names `n<noise>_f<fitness>_<on|off>_r<rep>`: noise 0.05 and 0.1, `-f 1` / `-f 3`, on / off, r1-r5; noise 0.1 switch-off also r6-r20 | 70 |
+| `gen` | `g<G>_f<fitness>_<on|off>_r<rep>`, `-g 1000` and `-g 2000`, `-f 1` / `-f 3`, on / off, r1-r10 | 80 |
+| `gen500` | the same with `-g 500` (rerun, to have the progress files) | 40 |
