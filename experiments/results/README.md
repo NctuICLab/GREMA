@@ -54,6 +54,6 @@ Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `nam
 
 | Directory | Content | Runs |
 |-----------|---------|------|
-| `small` | 4 TFs, 23 variables, 5 min grid (19 points), gold network 1 (4 edges), `-f 1`, `runs/f1_r1-3` | 3 |
-| `small15` | the same on the 15 min grid (7 points) | 3 |
+| `small` | 4 TFs, 23 variables, 5 min grid (19 points), gold network 1 (4 edges), `-f 1`: `runs` = 4 slots per gene (all TFs), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=2`) | 3 + 3 |
+| `small15` | the same on the 15 min grid (7 points) | 3 + 3 |
 | `net3_p10_s15` | 10 TFs, 56 variables, 15 min grid, gold network 3 (18 edges): `runs` = 10 regulator slots per gene, `runs_slot3` = 3 slots (`GREMA_SLOT_DIV=3`), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=5`) | 3 + 3 + 3 |

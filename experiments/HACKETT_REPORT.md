@@ -45,7 +45,18 @@ Mean AUROC / AUPRC over the runs; random AUROC 0.5.
 | 5 min (19 points, 11 interpolated) | 0.562 / 0.052 | 0.631 / 0.061 | 0.758 / 0.091 | about 21 min |
 | 15 min (7 points, 2 interpolated) | 0.575 / 0.053 | 0.619 / 0.059 | 0.734 / 0.082 | about 12 min |
 
-The two grids do not differ beyond noise; the 15 min grid has fewer made-up points and is faster, so it was used for the main test. 4 true edges cannot show accuracy.
+All 4 TFs are candidates for every gene (4 slots, no limit). The same network with 2 slots per gene (`GREMA_SLOT_DIV=2`, `round(4/2)`; 3 runs each, `runs_slot2`):
+
+| Time grid, 2 slots | TP / FP | binary | conf | vote |
+|---|---|---|---|---|
+| 5 min | 4.0 / 42.0 | 0.750 / 0.087 | 0.766 / 0.092 | 0.812 / 0.125 |
+| 15 min | 4.0 / 42.0 | 0.750 / 0.087 | 0.760 / 0.090 | 0.859 / 0.145 |
+| (4 slots, 5 min / 15 min) | 4.0 / 73.7 and 71.3 | | | |
+
+- With 4 slots the two grids do not differ beyond noise; with 2 slots the 15 min grid is ahead in vote (0.859 vs 0.812) and equal in conf. The difference (0.05) is at the border of noise, and a single true edge of the 4 moves the AUROC by about 0.08 (its rank was 39 on the 5 min grid and 12 on the 15 min grid for one edge), so this is no evidence for a grid. The 15 min grid has fewer made-up points and is faster, so it was used for the main test.
+- 2 slots instead of 4: all 4 true edges are still found (TP 4.0), FP fall from about 72 to 42, and binary / conf AUROC rise by 0.13-0.19, vote by 0.05-0.13. The same direction as in the main test below.
+  The 2-slot run was made after the 56-variable results were seen, so it is not an independent confirmation.
+- 4 true edges cannot show accuracy.
 
 **Main test** (10 TFs, 56 variables, 10 replicates, 15 min grid, network 3: 550 pairs, 18 gold edges, random AUPRC 0.033; 3 runs, about 1.5 h per run with 10 slots):
 
