@@ -216,14 +216,34 @@ void Getknowledge::Readknowledge(int GeneIndex, int iter, int *LocMask, int *ran
     }
     else
     {
-        //every '?' regulator has its own slot (no random subset)
-        NumConnections = possible;
-        if(NumConnections > MAX_SLOTS)
+        //experiment: when GREMA_SLOT_DIV is set, a restricted candidate list (e.g. only the TFs may regulate) is
+        //also searched as a random subset of round(possible/GREMA_SLOT_DIV) slots instead of one slot per candidate
+        double slot_div = 0;
+        if(getenv("GREMA_SLOT_DIV") && atof(getenv("GREMA_SLOT_DIV")) > 0)
+            slot_div = atof(getenv("GREMA_SLOT_DIV"));
+        int freeall = possible - regulations;
+        int freeslots = 0;
+        if(slot_div > 0 && freeall > 0)
         {
-            fprintf(stderr, "Too many candidate regulators (%d), at most %d are supported\n",NumConnections,MAX_SLOTS);
-            exit(1);
+            freeslots = (int)(possible/slot_div + 0.5) - regulations;
+            if(freeslots < 1) freeslots = 1;
         }
-        id_TFs = true;
+        if(slot_div > 0 && freeall > 0 && freeslots < freeall && regulations + freeslots <= MAX_SLOTS)
+        {
+            NumConnections = regulations + freeslots;
+            id_TFs = false;
+        }
+        else
+        {
+            //every '?' regulator has its own slot (no random subset)
+            NumConnections = possible;
+            if(NumConnections > MAX_SLOTS)
+            {
+                fprintf(stderr, "Too many candidate regulators (%d), at most %d are supported\n",NumConnections,MAX_SLOTS);
+                exit(1);
+            }
+            id_TFs = true;
+        }
     }
     fp.close();
 }

@@ -47,3 +47,13 @@ Use the same input files if you want to re-run with different options.
 | `pt` | `-perturb 9 -noise N`, `-g 500`, names `n<noise>_f<fitness>_<on|off>_r<rep>`: noise 0.05 and 0.1, `-f 1` / `-f 3`, on / off, r1-r5; noise 0.1 switch-off also r6-r20 | 70 |
 | `gen` | `g<G>_f<fitness>_<on|off>_r<rep>`, `-g 1000` and `-g 2000`, `-f 1` / `-f 3`, on / off, r1-r10 | 80 |
 | `gen500` | the same with `-g 500` (rerun, to have the progress files) | 40 |
+
+## `hackett_results.tgz` (TF-induction time courses of Hackett et al. 2020, see `experiments/HACKETT_REPORT.md`)
+
+Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `names.tsv` G<i> -> ORF / symbol / TF, `summary.txt`) and `final_results.txt` of every run; all runs finished. Evaluate with `--gold <design>/gold.tsv`.
+
+| Directory | Content | Runs |
+|-----------|---------|------|
+| `small` | 4 TFs, 23 variables, 5 min grid (19 points), gold network 1 (4 edges), `-f 1`, `runs/f1_r1-3` | 3 |
+| `small15` | the same on the 15 min grid (7 points) | 3 |
+| `net3_p10_s15` | 10 TFs, 56 variables, 15 min grid, gold network 3 (18 edges): `runs` = 10 regulator slots per gene, `runs_slot3` = 3 slots (`GREMA_SLOT_DIV=3`), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=5`) | 3 + 3 + 3 |
