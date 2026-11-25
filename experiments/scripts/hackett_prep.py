@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Make a GREMA input from the Hackett et al. (2020, GSE142864) TF-induction time courses and the Ma et al. (2014) gold standard.
 
-usage: python3 -I hackett_prep.py DATA_DIR GOLD_XLSX OUT_DIR [--tfs 10] [--genes 30] [--network 1] [--per-tf N] [--step 5]
+usage: python3 -I hackett_prep.py DATA_DIR GOLD_XLSX OUT_DIR [--tfs 10] [--genes 30] [--network 1] [--per-tf N] [--step 5] [--skip-tfs N]
 Rules (fixed before any GREMA run, no gold-standard edge is used to choose anything):
   TFs    the --tfs induced TFs that are regulators in the gold standard (network N) and have the 8 standard time points
          (0,5,10,15,20,30,45,90 min), with the most responding genes (max |value| over time > 1)
@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hackett_explore import read_gold, read_platform, read_matrix, experiments, TIMES
 
 args = sys.argv[1:]
-opt = {"--tfs": 10, "--genes": 30, "--network": 1, "--per-tf": 0, "--step": 5}
+opt = {"--tfs": 10, "--genes": 30, "--network": 1, "--per-tf": 0, "--step": 5, "--skip-tfs": 0}
 pos = []
 i = 0
 while i < len(args):
@@ -73,10 +73,15 @@ for (strain, tf), cols in sorted(exps.items()):
 cand.sort(key=lambda c: (-c[0], c[1]))
 chosen = []
 seen = set()
+skipped = 0
 for c in cand:
     if c[2] in seen:
         continue
-    seen.add(c[2]); chosen.append(c)
+    seen.add(c[2])
+    if skipped < opt["--skip-tfs"]:   # --skip-tfs N: leave out the N best-ranked TFs (an independent second subset)
+        skipped += 1
+        continue
+    chosen.append(c)
     if len(chosen) == opt["--tfs"]:
         break
 tf_orfs = [c[2] for c in chosen]

@@ -94,7 +94,7 @@ End to end (GREMA on the filtered knowledge, final score as above; unfiltered GR
 
 - The filter alone is often as good as the filtered GREMA (Hackett, Hill dictionary: filter 0.793 for seed 0, GREMA vote alone 0.741, combined 0.768): the genetic fit does not add to the filter there.
 - IRMA switch-off improves with two filters (+0.17 / +0.23) and gets worse or stays with the others, so there is no filter that works everywhere; a filter that drops the true regulators (coverage) limits GREMA.
-- Of everything tried, the deterministic Hill dictionary is the best on Hackett (0.765, close to dynGENIE3 ET 0.791) and needs minutes instead of about one hour; as an additive model it is a replacement of the search, not an improvement of HFODE.
+- On the first TF subset the deterministic Hill dictionary is the best filter (0.765, close to dynGENIE3 ET 0.791) and needs minutes instead of about one hour; as an additive model it is a replacement of the search, not an improvement of HFODE. **This was not reproduced on a second TF subset (0.698, section 7): the first subset was the favourable one.**
 
 ## 5. Why the data sets differ so much (partly tested)
 
@@ -108,10 +108,30 @@ End to end (GREMA on the filtered knowledge, final score as above; unfiltered GR
 - `README.md`: both are documented. New scripts in `experiments/scripts/` (see the docstrings): `dyngenie3_runner.py`, `permute_replicates.py`, `contrast_scores.py`, `postprocess_scores.py`, `lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`, `eval_prefilter.py`.
 - The dynGENIE3 code (https://github.com/vahuynh/dynGENIE3) was not copied into the repository; the Python environment was built with pixi (numpy, scikit-learn, scipy, pandas, pyHSICLasso).
 
-## 7. Limits and corrections
+## 7. Independent check with a second TF subset of the Hackett data
+
+Same procedure (`hackett_prep.py --per-tf 10 --network 3 --step 15`), but the TFs ranked 11-20 by the number of responding genes (`--skip-tfs 10`; fixed before the runs): GCN4, SWI6, ROX1, RME1, SOK2, STB5, RTG3, NRG1, SKO1, CIN5
+(55 variables, 540 pairs, 18 gold edges; the first subset was SFP1, GLN3, STE12, YOX1, PHO4, MOT3, YAP1, SUM1, ACE2, RLM1; the TFs are disjoint, some genes are shared). Archive: `experiments/results/hackett_set2_results.tgz`.
+Compared (fixed beforehand): dynGENIE3 RF / ET (10 seeds), the Hill dictionary alone (3 seeds), GREMA with 2 slots (3 runs), the Hill dictionary filter + GREMA (3 runs), and the experiment-permutation control for dynGENIE3 and the Hill dictionary.
+
+| Method | first TF subset | second TF subset |
+|---|---|---|
+| dynGENIE3 ET | **0.791** / 0.250 | 0.707 / 0.103 |
+| dynGENIE3 RF | 0.723 / 0.178 | 0.701 / 0.075 |
+| Hill dictionary alone | 0.765 / 0.132 | 0.698 / 0.083 |
+| Hill dictionary filter + GREMA | 0.768 / 0.127 | 0.667 / 0.075 |
+| GREMA, 2 slots (vote) | 0.736 / 0.107 | **0.609** / 0.050 (conf 0.602) |
+| permutation control: Hill dictionary / dynGENIE3 RF / ET | 0.521 / 0.548 / 0.557 | 0.510 / 0.509 / 0.491 |
+
+- The permutation control falls to random level on the second subset too: the scores come from the regulation inside the experiments.
+- The three fast methods are equal within the noise on the second subset (0.70-0.71). The advantage of dynGENIE3 ET (+0.055) and the Hill dictionary over GREMA on the first subset is smaller or gone: only GREMA with the genetic search fell clearly (0.736 -> 0.609, the signs of its true edges are mixed: 6 `+`, 15 `-`).
+- The Hill dictionary filter kept 13 of the 18 true edges; the filtered GREMA (0.667) is better than GREMA alone (0.609) and worse than the filter alone (0.703), as on the first subset: the genetic fit does not add to the filter.
+- What can be said: on the Hackett data the fast methods (dynGENIE3, the Hill dictionary) are at 0.70-0.79, the genetic search of GREMA at 0.61-0.74, the ordering between the fast methods changes with the TF subset, and the AUROC of GREMA changes by 0.13. Two subsets of 18 edges, 3 GREMA runs each: the numbers are rough. Both subsets come from the same experiments.
+
+## 8. Limits and corrections
 
 - One valid data set with a larger gold standard (Hackett; 18 true edges, 3 GREMA runs per setting, gold network 3 is inclusive), one more (IRMA, 8 edges); SOS is not valid for comparing methods. The permutation control exists for SOS and Hackett only.
 - Many settings were compared; the rules were fixed beforehand, all results (also the negative ones) are reported, but the multiplicity is not corrected.
-- The Hill dictionary and the other filters were run on the same data that evaluate them; a second TF subset of the Hackett data would be the independent check.
+- The Hill dictionary and the other filters were chosen on the first TF subset; the second subset (section 7) did not confirm the advantage seen there.
 - Correction made during the work: a check of the Hill coefficients first used a column index shifted by one; the corrected numbers (56.6% of the entries are exactly 0, median |n| 3.97) give the same conclusion.
 - The GREMA runs of the permutation control and the end-to-end tests are 3-5 runs per setting.
