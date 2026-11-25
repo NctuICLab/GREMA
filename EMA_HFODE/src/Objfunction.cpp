@@ -229,7 +229,7 @@ double Objfunction::fitnessValue(double *OneChrom, bool count_cost)//(GeneParamV
             {
                 val2 = hill->CalDeltaValue(r, GeneIndex, j);
                 add_t = hill->ExpValue(r, GeneIndex, j+1);
-                exp_delta = (add_t-val21)/interval_t;
+                exp_delta = (add_t-val21)/hill->StepLen(j);   //the real time step when -time is given, delta_t otherwise
                 temp = fabs(exp_delta - val2);
             }
             ErrorValue=fabs(val21 - val22);
