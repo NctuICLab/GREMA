@@ -84,3 +84,8 @@ Result files of the comparison, inputs of the controls; GREMA runs as `<setting>
 | `nmin_runs` | Hackett, 2 slots: `-nmax 8`, `-min 0.5`, `-min 1` (3 runs each) |
 | `prior_lasso`, `prior_hsic`, `prior_hill`, `prior_hill_perm` | prior scores, filtered knowledge files and summary of the three filters (`prior_hill_perm`: Hill dictionary on the permuted data) |
 | `lasso_grema_runs`, `hsic_grema_runs`, `hill_grema_runs` | GREMA on the filtered knowledge files |
+
+## `hackett_set2_results.tgz` (second TF subset of the Hackett data, see `experiments/METHODS_REPORT.md` section 7)
+
+The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `names.tsv`, `summary.txt`), `grema/` (`grema_2slots_r1-3`: 2 slots on the full candidate list; `grema_hill_r1-3`: on the Hill dictionary filtered knowledge file `hill/s0/knowledge_filtered.txt`),
+`dyngenie/RF`, `dyngenie/ET` (10 seeds), `hill/s0-2` (prior scores of the Hill dictionary), `perm/` (the permuted data sets `data_p<k>.txt` and the Hill dictionary / dynGENIE3 scores on them).
