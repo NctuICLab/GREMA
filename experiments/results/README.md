@@ -68,3 +68,19 @@ Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `nam
 | `ssystem_slots` | S-system with the slot rule of HFODE, IRMA, `-f 1`: `div0` = default (1 slot), `div2` (2 slots), `div1` (4 slots) | 60 |
 | `ssystem_old` | S-system with the old rule `round(N/3)` (2 slots on IRMA), `-f 1`, `ss_f1_<on|off>_r<rep>` | 20 |
 | `orient` | simulated data with the IRMA topology (`sim<seed>.txt` from `sim_gen.py <seed> 3 0.02`), `hfode_s<seed>`, `ssystem_s<seed>` (old rule), `-f 1`; evaluate with the IRMA gold standard | 10 |
+
+## `methods_comparison_results.tgz` (dynGENIE3, edge scores, filters before GREMA; see `experiments/METHODS_REPORT.md`)
+
+Result files of the comparison, inputs of the controls; GREMA runs as `<setting>/<run>/final_results.txt` (the per-iteration `iga_results/` are not archived), dynGENIE3 as `<data>/seed<k>/final_results.txt`
+(same columns: the dynGENIE3 score is written in both score columns, REGULATORY is `+` for every pair). Evaluate with `eval_runs.py` (gold standards: `input/IRMA`, `input/SOS`, Hackett `gold.tsv` in `hackett_results.tgz`).
+
+| Directory | Content |
+|-----------|---------|
+| `dyngenie` | dynGENIE3 RF / ET, 10 seeds: `RF_on`, `ET_on`, `RF_off`, `ET_off` (IRMA), `sos_RF`, `sos_ET`, `hackett_RF`, `hackett_ET` |
+| `dyngenie_perm` | dynGENIE3 on the 10 experiment-permuted data sets of SOS and Hackett (`dyn_<data>_<RF|ET>_p<k>`) |
+| `permuted_data` | the permuted data sets (`permute_replicates.py <input> <output> <seed>`, seeds 1-10) |
+| `perm_grema` | GREMA on permuted data: `grema_sos_p1-5`, `grema_hackett_p1-3` (2 slots) |
+| `contrast_runs`, `contrast_scores` | GREMA runs that kept every iteration (SOS, IRMA on / off, Hackett with 3 and 2 slots) and the contrast scores of them |
+| `nmin_runs` | Hackett, 2 slots: `-nmax 8`, `-min 0.5`, `-min 1` (3 runs each) |
+| `prior_lasso`, `prior_hsic`, `prior_hill`, `prior_hill_perm` | prior scores, filtered knowledge files and summary of the three filters (`prior_hill_perm`: Hill dictionary on the permuted data) |
+| `lasso_grema_runs`, `hsic_grema_runs`, `hill_grema_runs` | GREMA on the filtered knowledge files |

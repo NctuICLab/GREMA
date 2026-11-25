@@ -103,6 +103,7 @@ Options:
 | `-f` | no | Fitness function (error between the observed and the simulated expression): `0` squared relative error, `1` squared error (default), `2` squared error of the derivative + squared relative error, `3` squared error of the derivative + squared error, `4` squared error of the derivative only. The derivative term is not computed at the last time point. On the IRMA data `3` was slightly better than the default, see [input/IRMA](input/IRMA/README.md). |
 | `-c` | no | `1` adds the correlation-coefficient term `1 - CC` to the fitness. Default `0`. |
 | `-min` | no | A parameter whose absolute value is not larger than this value is treated as "no regulation" when determining the regulations. Default `0`. |
+| `-nmax` | no | (HFODE only) Bound of the Hill coefficients, `-nmax <= n <= nmax`. Default `4`. On the Hackett data a bound of 8 gave the same ranking as 4 (the coefficients grow until they reach the bound), see [experiments/METHODS_REPORT.md](experiments/METHODS_REPORT.md). |
 | `-perturb` | no | (HFODE only) Number of extra time series that are made from the data and fitted together with it, default `0` (off). Extra series number `i` is a copy of replicate `(i mod number of replicates)` with Gaussian noise added to every value (see `-noise`); with 3 replicates and `-perturb 9` every replicate is copied 3 times. The extra series are used like additional experiments in the fitness, the observed data are not changed. Needs `-noise`. |
 | `-noise` | with `-perturb` | Standard deviation of that noise **relative to the value**: a value `x` becomes a draw from a normal distribution with mean `x` and standard deviation `noise * x` (`0.05` = 5%), drawn independently for every gene and time point (also the first one). Must be larger than 0 when `-perturb` is used and has no effect without it. |
 
@@ -199,6 +200,7 @@ Example: [results of Dream4 size10 Network1](output/Dream4_10_1/final_results.tx
 The other files in the output directory:
 
 - `G*.txt`: the parameters, fitness and correlation coefficient of the 30 runs of the evolutionary algorithm for each gene (from the final quantification step).
+- `iga_results/<gene>_step<k>.txt`: the same 30 runs for every iteration `k` of GREMA (`G*.txt` is overwritten by each iteration, so it only holds the last one). One line per run, separated by spaces: `b`, `TransMax`, `n` of every candidate regulator, `k` of every candidate, `degrade`, further fields, the fitness (second last field) and one trailing field; a candidate that was not in the random subset of the run has `n = 0`. Set the environment variable `GREMA_KEEP_ITER=0` to switch this off. About 0.5 MB for 56 genes.
 - `tmp/`: intermediate files, such as the knowledge of each round (`*_ForStep*.txt`), the configuration file of the solver (`*_config`) and the simulated profiles (`calprofile*`). GREMA runs the solver inside this directory, so nothing is written next to the input file or into the current directory.
 
 ## Evaluation of GREMA
