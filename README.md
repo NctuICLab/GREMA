@@ -88,6 +88,8 @@ Options:
        -t      [No]    Number of threads
        -min    [value] ex: 0.01 [min value] default is 0
        -perturb        [No] number of extra series made from the data by adding noise (HFODE only), default 0
+       -time   [list] HFODE only: sampling times of the time points, comma separated and increasing, ex: 0,5,10,15,20,30,45,90; default: equal steps of 1
+       -tunit  [value] the times of -time are divided by this value, default is 1
        -noise  [value] ex: 0.05 standard deviation of that noise relative to the value, needed with -perturb
        -h      Show the usage
 ```
@@ -104,6 +106,8 @@ Options:
 | `-c` | no | `1` adds the correlation-coefficient term `1 - CC` to the fitness. Default `0`. |
 | `-min` | no | A parameter whose absolute value is not larger than this value is treated as "no regulation" when determining the regulations. Default `0`. |
 | `-nmax` | no | (HFODE only) Bound of the Hill coefficients, `-nmax <= n <= nmax`. Default `4`. On the Hackett data a bound of 8 gave the same ranking as 4 (the coefficients grow until they reach the bound), see [experiments/METHODS_REPORT.md](experiments/METHODS_REPORT.md). |
+| `-time` | no | (HFODE only) The real sampling times of the time points, comma separated and strictly increasing, one value for every time point of the input, ex: `-time 0,5,10,15,20,30,45,90`. Without it the time points are equally spaced (step 1). With it the model is integrated over the real interval between two time points (explicit Euler steps of at most 1, the observed expression of the other genes interpolated linearly inside the interval) and the derivative term of `-f 2/3/4` uses the real interval. Use `-tunit` so that the typical interval is about 1 (the ranges of the parameters are made for steps of about 1). Not available for S-system. |
+| `-tunit` | no | The times of `-time` are divided by this value, default `1`; ex: `-time 0,5,10,15,20,30,45,90 -tunit 5` (the median interval of 5 minutes becomes 1). |
 | `-perturb` | no | (HFODE only) Number of extra time series that are made from the data and fitted together with it, default `0` (off). Extra series number `i` is a copy of replicate `(i mod number of replicates)` with Gaussian noise added to every value (see `-noise`); with 3 replicates and `-perturb 9` every replicate is copied 3 times. The extra series are used like additional experiments in the fitness, the observed data are not changed. Needs `-noise`. |
 | `-noise` | with `-perturb` | Standard deviation of that noise **relative to the value**: a value `x` becomes a draw from a normal distribution with mean `x` and standard deviation `noise * x` (`0.05` = 5%), drawn independently for every gene and time point (also the first one). Must be larger than 0 when `-perturb` is used and has no effect without it. |
 

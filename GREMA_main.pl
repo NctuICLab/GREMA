@@ -22,6 +22,8 @@ my $program = abs_path($0);
 my %gene_index;
 my $min = 0;
 my $perturb_no = 0;	# number of extra series made from the data by adding noise (HFODE only)
+my $time_list = "";	# real sampling times of the time points (HFODE only), comma separated; default: equal steps
+my $time_unit = 1;	# the times are divided by this value
 my $n_max = 4;	# bound of the Hill coefficients n_ij of HFODE: -n_max <= n_ij <= n_max
 my $noise_degree = 0;	# standard deviation of that noise, relative to the value
 my $select_top_no = 5;#number of top runs that vote for a regulation
@@ -45,6 +47,8 @@ Options:
 	-perturb	[No] number of extra series made from the data by adding noise (HFODE only), default 0
 	-noise	[value] ex: 0.05 standard deviation of that noise relative to the value, needed with -perturb
 	-nmax	[value] HFODE only: bound of the Hill coefficients, -value <= n <= value, default is 4
+	-time	[list] HFODE only: sampling times of the time points, comma separated and increasing, ex: 0,5,10,15,20,30,45,90; default: equal steps of 1
+	-tunit	[value] the times of -time are divided by this value (the parameter ranges are made for steps of about 1), default is 1
 	-h	Show the usage
 	";
 }
@@ -235,6 +239,15 @@ sub generate_config {
 	print CONF "num_tf ".$total_gene_no."\n";
 	print CONF "num_run ".$total_rep."\n";
 	print CONF "num_trial ".$total_point."\n";
+	if($time_list ne ""){
+		my @tp = split(/[,\s]+/,$time_list);
+		die "-time has ".scalar(@tp)." values but the time series have ".$total_point." time points\n" if(scalar @tp != $total_point);
+		for(my $q=0; $q<scalar @tp; $q++){
+			die "-time: '".$tp[$q]."' is not a number\n" if(!looks_like_number($tp[$q]));
+			die "-time must be strictly increasing\n" if($q > 0 && $tp[$q] <= $tp[$q-1]);
+		}
+		print CONF "time_points ".join(" ",map { sprintf("%.10g",$_/$time_unit) } @tp)."\n";
+	}
 	print CONF "add_perturbation yes ".$perturb_no." ".$noise_degree."\n" if($perturb_no > 0);
 	print CONF "nochange 1000\n";
 	if($model eq "HFODE"){
@@ -750,6 +763,8 @@ GetOptions(
 	'perturb=i'	=>\$perturb_no,
 	'noise=f'	=>\$noise_degree,
 	'nmax=f'	=>\$n_max,
+	'time=s'	=>\$time_list,
+	'tunit=f'	=>\$time_unit,
 	'h'	=>\$help,
 ); 
 if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
@@ -761,6 +776,14 @@ if($perturb_no < 0 || $noise_degree < 0 || ($perturb_no > 0 && $noise_degree <= 
 }
 if($perturb_no > 0 && $model ne "HFODE"){
 	print STDERR "-perturb is only supported with the HFODE model\n";
+	Usage();die;
+}
+if($time_unit <= 0){
+	print STDERR "-tunit must be > 0\n";
+	Usage();die;
+}
+if($time_list ne "" && $model ne "HFODE"){
+	print STDERR "-time is only supported with the HFODE model\n";
 	Usage();die;
 }
 if($n_max <= 0){

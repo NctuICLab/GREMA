@@ -128,7 +128,25 @@ Compared (fixed beforehand): dynGENIE3 RF / ET (10 seeds), the Hill dictionary a
 - The Hill dictionary filter kept 13 of the 18 true edges; the filtered GREMA (0.667) is better than GREMA alone (0.609) and worse than the filter alone (0.703), as on the first subset: the genetic fit does not add to the filter.
 - What can be said: on the Hackett data the fast methods (dynGENIE3, the Hill dictionary) are at 0.70-0.79, the genetic search of GREMA at 0.61-0.74, the ordering between the fast methods changes with the TF subset, and the AUROC of GREMA changes by 0.13. Two subsets of 18 edges, 3 GREMA runs each: the numbers are rough. Both subsets come from the same experiments.
 
-## 8. Limits and corrections
+## 8. Real (unequal) time points: option `-time`
+
+HFODE used equal time steps (`delta_t = 1`), so the 8 measured time points of Hackett (0, 5, 10, 15, 20, 30, 45, 90 min) were interpolated to an equal grid (extra made-up points). New options `-time LIST` and `-tunit VALUE` of `GREMA_main.pl`
+(HFODE only; README): the model is integrated over the real interval between two time points (explicit Euler steps of at most 1, the observed expression of the other genes interpolated linearly inside the interval) and the derivative term of `-f 2/3/4` uses the real interval.
+The times are divided by `-tunit` so that the typical interval is about 1 (here the median interval of 5 minutes, `-tunit 5`: 0,1,2,3,4,6,9,18). Without `-time` nothing changes.
+
+- Check of the equal-step case (IRMA switch-on, 5 runs each, `-time 0,1,...,15` against no option): conf 0.702 / 0.708, vote 0.785 / 0.782: the same within the noise.
+- Hackett, both TF subsets, GREMA 2 slots, `-f 1`, `-g 500`, 3 runs each, the 8 measured points with the real times against the 15 min grid of sections 2-7 (AUROC / AUPRC; `experiments/scripts/hackett_prep.py --step 0`; archive `experiments/results/real_time_points_results.tgz`):
+
+| | real time points | 15 min grid (interpolated) |
+|---|---|---|
+| first TF subset, vote (conf) | 0.753 / 0.115 (0.691 / 0.072) | 0.736 / 0.107 (0.660 / 0.061) |
+| second TF subset, vote (conf) | 0.594 / 0.046 (0.606 / 0.052) | 0.609 / 0.050 (0.602 / 0.048) |
+
+  The differences (+0.017, -0.015 for vote; +0.03, +0.004 for conf) are below the noise and have different signs: **no measurable gain from the real time points on these data** (Hackett has only 8 points and the two TF subsets differ by 0.15 whatever the time handling).
+  The runs with the real times were slower (about 2.5 h against about 1.5 h): the long interval of 45 -> 90 minutes is integrated in 9 sub-steps.
+- So the option makes real, unequal sampling times usable without made-up points; whether it matters for series with a larger spread of the intervals (e.g. RNA-seq at 0, 0.5, 1, 2, 4, 8 h) was not tested.
+
+## 9. Limits and corrections
 
 - One valid data set with a larger gold standard (Hackett; 18 true edges, 3 GREMA runs per setting, gold network 3 is inclusive), one more (IRMA, 8 edges); SOS is not valid for comparing methods. The permutation control exists for SOS and Hackett only.
 - Many settings were compared; the rules were fixed beforehand, all results (also the negative ones) are reported, but the multiplicity is not corrected.

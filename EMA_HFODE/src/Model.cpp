@@ -353,6 +353,32 @@ int Model::ReadInitFromFile(char* filename)
 			NumTrial = atoi(NeedTok(token,"num_trial"));
             //printf("NumTrial=%d\n",NumTrial);
 		}
+		else if(strcmp(token, "time_points") == 0)
+		{
+			//time_points t_0 ... t_(num_trial-1): the real sampling times (num_trial must be set before); step_len[t] = t_(t+1) - t_t
+			if(NumTrial <= 1)
+			{
+				fprintf(stderr, "time_points: num_trial must be set before and larger than 1\n");
+				return -1;
+			}
+			std::vector<double> tp;
+			for(i = 0; i < NumTrial; i++)
+			{
+				token = strtok(NULL, "\t\r\n #");
+				tp.push_back(atof(NeedTok(token,"time_points")));
+			}
+			step_len.assign(NumTrial, 0);
+			for(i = 0; i + 1 < NumTrial; i++)
+			{
+				step_len[i] = tp[i+1] - tp[i];
+				if(!(step_len[i] > 0))
+				{
+					fprintf(stderr, "time_points must be strictly increasing (point %d)\n", i + 1);
+					return -1;
+				}
+			}
+			step_len[NumTrial-1] = step_len[NumTrial-2];
+		}
 		else if(strcmp(token, "delta_t") == 0)
 		{
 			token = strtok(NULL, "\t\r\n #");
@@ -1211,6 +1237,44 @@ void Model::CalRunVarCalValues_Divide(int nRun, int GeneIndex)// calculate the f
         }
         calValues[nRun].dX[GeneIndex][t] = activate - caldegrade[GeneIndex] * calValues[nRun].X[GeneIndex][t];
         tmp = calValues[nRun].dX[GeneIndex][t] * delta_t + calValues[nRun].X[GeneIndex][t];
+        if(!step_len.empty())
+        {
+            //real time points: explicit Euler steps of at most delta_t over the interval from t to t+1; the observed expression of
+            //the other genes is interpolated linearly in the interval (equal steps of delta_t give the formula above)
+            double step = step_len[t];
+            int nsub = (int)ceil(step / delta_t - 1e-9);
+            if(nsub < 1) nsub = 1;
+            double h = step / nsub;
+            double xi = calValues[nRun].X[GeneIndex][t];
+            double dxi = calValues[nRun].dX[GeneIndex][t];
+            for(int s = 0; s < nsub; s++)
+            {
+                if(s > 0)
+                {
+                    double w = (double)s / nsub;
+                    double tm = 1;
+                    for(j = 0; j < NumVar; j++)
+                    {
+                        double xj;
+                        if(j == GeneIndex)
+                            xj = xi;
+                        else if(t + 1 < NumTrial)
+                            xj = expValues[nRun].X[j][t] * (1 - w) + expValues[nRun].X[j][t+1] * w;
+                        else
+                            xj = expValues[nRun].X[j][t];
+                        if(cal_n[GeneIndex][j] != 0)
+                            tm *= 1/(1+pow(cal_k[GeneIndex][j]/xj,cal_n[GeneIndex][j]));
+                    }
+                    double act = calTransMax[GeneIndex]*tm + calb[GeneIndex];
+                    if(act < 0) act = 0;
+                    dxi = act - caldegrade[GeneIndex] * xi;
+                }
+                xi = xi + dxi * h;
+                if(xi >= XMAX) xi = XMAX;
+                else if(xi <= XMIN) xi = XMIN;
+            }
+            tmp = xi;
+        }
 
         //printf("%d tmp=%f\n",t,tmp);
         if(tmp >= XMAX)

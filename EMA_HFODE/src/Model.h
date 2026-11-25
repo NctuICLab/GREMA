@@ -1,6 +1,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 #include "Define.h"
+#include <vector>
 #define REPLACE_ZERO		XMIN
 //extern double AddGaussianNoise(double stdev, double mean);
 struct Values
@@ -89,6 +90,8 @@ public:
     
 	//void SetDeltaT(double dt) { delta_t = dt; }
 	double GetDeltaT() { return delta_t; }
+	//length of the time step from time point t to t+1 (the real time points of -time, delta_t otherwise); the last step repeats the previous one
+	double StepLen(int t) const { return (t >= 0 && t < (int)step_len.size()) ? step_len[t] : delta_t; }
     //double GetsimDeltaT() { return sim_deltat;}
 	double CalDeltaValue(int run, int i, int t);
 	//double ExpDeltaValue(int run, int i, int t);
@@ -154,7 +157,8 @@ private:
 	bool* isSetInitCalVal;
 	bool isInitCalModel;
 	
-	double delta_t; //delta time
+	double delta_t; //delta time (largest sub-step of the integration when the time points are given)
+	std::vector<double> step_len; //time_points: step_len[t] = time[t+1] - time[t], empty = equal steps of delta_t
 	double delta_s; //for structure skeletelizing
     
 	bool isSimulated;

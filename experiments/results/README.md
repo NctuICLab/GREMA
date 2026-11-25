@@ -89,3 +89,8 @@ Result files of the comparison, inputs of the controls; GREMA runs as `<setting>
 
 The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `names.tsv`, `summary.txt`), `grema/` (`grema_2slots_r1-3`: 2 slots on the full candidate list; `grema_hill_r1-3`: on the Hill dictionary filtered knowledge file `hill/s0/knowledge_filtered.txt`),
 `dyngenie/RF`, `dyngenie/ET` (10 seeds), `hill/s0-2` (prior scores of the Hill dictionary), `perm/` (the permuted data sets `data_p<k>.txt` and the Hill dictionary / dynGENIE3 scores on them).
+
+## `real_time_points_results.tgz` (option `-time`, see `experiments/METHODS_REPORT.md` section 8)
+
+`inputs/set1`, `inputs/set2`: the two Hackett designs with the 8 measured time points (`hackett_prep.py ... --step 0`, `time_list.txt` = the argument of `-time`, `-tunit 5` was used); `rawtime_runs/set1_r1-3`, `set2_r1-3`: GREMA, 2 slots (`GREMA_SLOT_DIV=5`), `-f 1`, `-g 500`, `-time <time_list.txt> -tunit 5`;
+`equal_step_test/`: IRMA switch-on, 5 runs without and 5 runs with `-time 0,1,...,15` (the equal-step check).

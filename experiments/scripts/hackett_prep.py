@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Make a GREMA input from the Hackett et al. (2020, GSE142864) TF-induction time courses and the Ma et al. (2014) gold standard.
 
-usage: python3 -I hackett_prep.py DATA_DIR GOLD_XLSX OUT_DIR [--tfs 10] [--genes 30] [--network 1] [--per-tf N] [--step 5] [--skip-tfs N]
+usage: python3 -I hackett_prep.py DATA_DIR GOLD_XLSX OUT_DIR [--tfs 10] [--genes 30] [--network 1] [--per-tf N] [--step 5|15|0] [--skip-tfs N]
 Rules (fixed before any GREMA run, no gold-standard edge is used to choose anything):
   TFs    the --tfs induced TFs that are regulators in the gold standard (network N) and have the 8 standard time points
          (0,5,10,15,20,30,45,90 min), with the most responding genes (max |value| over time > 1)
   genes  the --genes other genes with the largest mean (over the chosen experiments) of the max |value| over time
          (genes with a missing value in a chosen experiment are skipped)
-  data   each chosen experiment = one replicate (repeat_number); linear interpolation to every --step min (default 5: 19 points; 15: 7 points);
+  data   each chosen experiment = one replicate (repeat_number); linear interpolation to every --step min (default 5: 19 points; 15: 7 points; 0: the 8 measured points, no interpolation);
          one global linear scaling of all values to [0.01, 1]
   know   only the chosen TFs can regulate (all other rows are 0), every TF -> gene pair is '?'
   gold   TF -> gene pairs of the chosen TFs (self pairs skipped) with 1 if the edge is in the gold network
@@ -29,7 +29,7 @@ while i < len(args):
 data_dir, gold_xlsx, out_dir = pos
 os.makedirs(out_dir, exist_ok=True)
 CUT = 1.0
-GRID = list(range(0, 91, opt["--step"]))
+GRID = list(range(0, 91, opt["--step"])) if opt["--step"] > 0 else list(TIMES)   # --step 0: the measured time points, no interpolation
 
 gold = read_gold(gold_xlsx, opt["--network"])
 gold_set = set(gold)
@@ -134,6 +134,8 @@ with open(out_dir + "/expression.txt", "w") as f:
         for j, p in enumerate(s):
             f.write("rep%d\tG%d\t" % (r + 1, j + 1) + "\t".join("%.6f" % (0.01 + (x - lo) / (hi - lo) * 0.99) for x in p) + "\n")
 names = ["G%d" % (j + 1) for j in range(len(variables))]
+with open(out_dir + "/time_list.txt", "w") as f:   # the sampling times (minutes) for the option -time of GREMA_main.pl
+    f.write(",".join(str(t) for t in GRID) + "\n")
 with open(out_dir + "/knowledge.txt", "w") as f:
     f.write("TF\tGENE\tREGULATORY\n")
     for a in range(len(variables)):
