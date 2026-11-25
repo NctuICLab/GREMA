@@ -94,3 +94,9 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 
 `inputs/set1`, `inputs/set2`: the two Hackett designs with the 8 measured time points (`hackett_prep.py ... --step 0`, `time_list.txt` = the argument of `-time`, `-tunit 5` was used); `rawtime_runs/set1_r1-3`, `set2_r1-3`: GREMA, 2 slots (`GREMA_SLOT_DIV=5`), `-f 1`, `-g 500`, `-time <time_list.txt> -tunit 5`;
 `equal_step_test/`: IRMA switch-on, 5 runs without and 5 runs with `-time 0,1,...,15` (the equal-step check).
+
+## `sign_simulation_results.tgz` (signs of GREMA on simulated signed networks, see `experiments/SIGN_SIMULATION_REPORT.md`)
+
+`net1-5/` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `signs.tsv`; made with `sim_signed_net.py <dir> <seed>`), `runs/net<k>_r<1,2>/final_results.txt` (GREMA, default settings, `-f 1`, `-g 500`),
+`var_<noise10|noise20|points8|points5|series1|additive|hidden2>/net1-5` and `var_*/runs/net<k>_r1` (the misspecified variants, 1 run per network), `dyn/<RF|ET>_net<k>/seed0-4/final_results.txt` (dynGENIE3 on the baseline networks).
+`python3 experiments/scripts/eval_sim_variants.py <the unpacked archive>` prints the table of the report.
