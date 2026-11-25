@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use threads;
 use Scalar::Util qw(looks_like_number);
-use File::Copy qw(move);
+use File::Copy qw(move copy);
 use Cwd 'abs_path';
 use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
@@ -22,6 +22,7 @@ my $program = abs_path($0);
 my %gene_index;
 my $min = 0;
 my $perturb_no = 0;	# number of extra series made from the data by adding noise (HFODE only)
+my $n_max = 4;	# bound of the Hill coefficients n_ij of HFODE: -n_max <= n_ij <= n_max
 my $noise_degree = 0;	# standard deviation of that noise, relative to the value
 my $select_top_no = 5;#number of top runs that vote for a regulation
 my $h_know_file;#S-system only
@@ -43,6 +44,7 @@ Options:
 	-min	[value] ex: 0.01 [min value] default is 0
 	-perturb	[No] number of extra series made from the data by adding noise (HFODE only), default 0
 	-noise	[value] ex: 0.05 standard deviation of that noise relative to the value, needed with -perturb
+	-nmax	[value] HFODE only: bound of the Hill coefficients, -value <= n <= value, default is 4
 	-h	Show the usage
 	";
 }
@@ -241,8 +243,8 @@ sub generate_config {
 		print CONF "b_down 0\n";
 		print CONF "transMax_up 8\n";
 		print CONF "transMax_down 0\n";
-		print CONF "n_up 4\n";
-		print CONF "n_down -4\n";
+		print CONF "n_up ".$n_max."\n";
+		print CONF "n_down -".$n_max."\n";
 		print CONF "k_up 4\n";
 		print CONF "k_down 0\n";
 		print CONF "degrade_up 1\n";
@@ -570,6 +572,13 @@ sub run_iga {
 		if($valid < $select_top_no){
 			die $gene_name.": only ".$valid." valid result lines (finite fitness, all parameters) in ".$out.", at least ".$select_top_no." are needed".(($cc == 1) ? " (-c 1 gives NaN for a flat profile, try -c 0)" : "")."\n";
 		}
+		#keep the GA results of every iteration (<output>/iga_results/<gene>_step<k>.txt) because <gene>.txt is overwritten by the next iteration;
+		#GREMA_KEEP_ITER=0 switches this off
+		if(!defined($ENV{GREMA_KEEP_ITER}) || $ENV{GREMA_KEEP_ITER} ne "0"){
+			my $keep_dir = $output_dir."/iga_results";
+			mkdir $keep_dir if(!-d $keep_dir);
+			copy($out,$keep_dir."/".$gene_name."_step".$gen.".txt") or die $gene_name.": cannot keep the result of iteration ".$gen.": ".$!."\n";
+		}
 		1;
 	};
 	return "" if($ok);
@@ -740,6 +749,7 @@ GetOptions(
 	'min=s'	=>\$min,
 	'perturb=i'	=>\$perturb_no,
 	'noise=f'	=>\$noise_degree,
+	'nmax=f'	=>\$n_max,
 	'h'	=>\$help,
 ); 
 if(!$expression ||!$knowledge || !$threads || $help ||$threads < 1 || !$output_dir){
@@ -751,6 +761,10 @@ if($perturb_no < 0 || $noise_degree < 0 || ($perturb_no > 0 && $noise_degree <= 
 }
 if($perturb_no > 0 && $model ne "HFODE"){
 	print STDERR "-perturb is only supported with the HFODE model\n";
+	Usage();die;
+}
+if($n_max <= 0){
+	print STDERR "-nmax must be > 0\n";
 	Usage();die;
 }
 if($min < 0){
