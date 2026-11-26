@@ -112,3 +112,11 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
 `python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+
+## `hmsc_feasibility_results.tgz` (hMSC time series, see `evaluation/analysis/HMSC_FEASIBILITY_REPORT.md`)
+
+`hmsc/runx2/`, `hmsc/multi150/`: `expression.txt` (log2 TPM scaled to [0.01, 1], 5 days), `knowledge_atac.txt` (footprint prior), `knowledge_all.txt` (multi150), `gold.tsv` (TF GENE gold atac_candidate sign), `gold3.tsv` (3 columns for `eval_runs.py`), `names.tsv`, `summary.txt`;
+`hmsc/multi150/runs/<atac_r1-5|all_r1-3|shuf1-3_atac>/out/final_results.txt`, `shuf/expression_shuf*.txt` (time-shuffled inputs), `dyn_rf/`, `dyn_rf_atac/` (dynGENIE3, 5 seeds).
+`python3 evaluation/analysis/scripts/eval_runs.py --gold hmsc/multi150/gold3.tsv "all=hmsc/multi150/runs/all_r*/out/final_results.txt" ...` gives the table of the report; `hmsc_baselines.py hmsc/multi150`, `hmsc_time_control.py` and `hmsc_diagnose.py` the other numbers.
+The raw RNA-seq and ATAC-seq data are internal and not in the repository.
+
