@@ -112,3 +112,11 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
 `python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+
+## `input_term_results.tgz` (the external input, see `evaluation/analysis/INPUT_TERM_REPORT.md`)
+
+`input_term/sim_input/seed<1-10>/` (`sim_input_net.py`: `train_input.txt`, `train_noinput.txt`, `train_const.txt`, `train_shuf.txt`, `heldout.txt`, knowledge files, `gold.tsv`, `signs.tsv`) and `runs/seed<k>_<input|noinput|const|shuf>/out/{G*.txt,final_results.txt}`;
+`input_term/irma_input_example/` (the joint profiles of switch-on and switch-off with 16, 12 and 8 points, with and without the input U1, the knowledge files, `runs/{in,no}{16,12,8}_r<k>/out/...`);
+`input_term/sos_input_dose/<loeo1-4|to20|to5>/` (`prep_sos_input.py`: train and test profiles for every shape of the input, knowledge files) and `runs/<fold>_<noinput|decay10|rev10>_r<k>/out/...`.
+`python3 evaluation/analysis/scripts/eval_input_sim.py <unpacked>/input_term/sim_input`, `eval_sos_input.py <unpacked>/input_term/sos_input_dose` and `examples/irma_input/forecast.py <unpacked>/input_term/irma_input_example/joint16_input.txt <unpacked>/input_term/irma_input_example/runs 8` print the tables of the report.
+

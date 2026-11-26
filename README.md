@@ -148,7 +148,7 @@ The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_
 
 A stimulus that drives the genes from outside (UV light, a change of the medium, a ligand, a differentiation signal) cannot be written as a regulation between genes.
 Without it, GREMA learns the common response of all genes to the stimulus as regulation between them, and a model fitted in one condition does not carry over to another
-([evaluation/analysis/IRMA_PREDICTION_REPORT.md](evaluation/analysis/IRMA_PREDICTION_REPORT.md)). With `-input` the stimulus is a regulator whose time course **you give**; GREMA estimates which genes respond to it and how.
+(`evaluation/analysis/IRMA_PREDICTION_REPORT.md`, free-running skill -4.7 against persistence); the tests of the input term are in [evaluation/analysis/INPUT_TERM_REPORT.md](evaluation/analysis/INPUT_TERM_REPORT.md): it works when the data come from the model, and it gave no improvement on IRMA and SOS. With `-input` the stimulus is a regulator whose time course **you give**; GREMA estimates which genes respond to it and how.
 
 **Model** (HFODE): `dx_i/dt = TransMax_i * prod_j 1/(1+(k_ij/x_j)^n_ij) * prod_m 1/(1+(k_im/u_m(t))^n_im) + b_i - degrade_i * x_i`; the first product is over the genes, the second over the inputs `u_m(t)`.
 `n_im > 0`: the input activates gene `i`, `n_im < 0`: it represses it. The input uses the same parameter ranges, regulator slots, voting and `+ - ? 0` knowledge as a gene, but it is never a target.

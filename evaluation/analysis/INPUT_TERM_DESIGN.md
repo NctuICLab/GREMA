@@ -1,6 +1,7 @@
 # Design: an external input for HFODE (`-input`)
 
-Status: **design for review, nothing is implemented.** Decisions that need an answer are in section 7.
+Status: **implemented** (`GREMA_main.pl -input`, the tools and the tests: `INPUT_TERM_REPORT.md`). The sections below are the design as it was written; where the implementation changed it, the report lists the changes (`-perturb` not supported, the IRMA and SOS tests, `make_input.py --shape` instead of `input_sensitivity.sh`).
+The decisions of section 7 were taken as recommended there (tools included, no delay in phase 1).
 
 ## 1. Why
 
