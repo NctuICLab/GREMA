@@ -150,6 +150,26 @@ The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_
 | Hill function-based ODE | `-m HFODE` (default) | `EMA_HFODE/EMA_HFODE` | Regulations are determined from the sign of the Hill coefficients `n_ij`. |
 | S-system | `-m s-system` | `EMA_SSYSTEM/EMA_ssystem` | Regulations are determined from the sign of the kinetic orders `g_ij`. The `h_ij` are fixed to 0 (the degradation term is a constant `beta`), and the number of regulators searched for each gene at the same time follows the rules of [Regulator slots](#regulator-slots-and-grema_slot_div). |
 
+## Is my data suitable? (`experiments/scripts/check_data.py`)
+
+Whether a regulation can be inferred depends more on the data than on the method. Before a run:
+
+```shell
+python3 experiments/scripts/check_data.py input.txt
+```
+
+prints the size of the data and warns when: there are fewer than 3 series, fewer than 8 time points, or fewer than 30 samples (series x (points - 1)); the genes are strongly correlated (mean |correlation| >= 0.55, a shared driver);
+or the series have the same time course (mean correlation of the same gene between two series >= 0.5: all experiments are one stimulus, as in the SOS data). The thresholds are rules of thumb from the data sets of this repository, not tests.
+
+What the analyses of this repository (reports in [experiments/](experiments)) found:
+- Data with **different perturbations** (a different TF induced in every experiment, as in the Hackett data) are the ones on which the scores of GREMA and dynGENIE3 come from the regulation. When all series are the same time course (SOS), the scores of both methods do **not** change when the genes of the experiments are shuffled
+  (`experiments/scripts/permute_replicates.py`: every gene takes its series from a random experiment; run the method on the shuffled data and compare): they come from the shared time course, so a high score there says little. Do this control on new data.
+- The number of series matters most for the detection (simulations: AUROC 0.91 with 4 series, 0.82 with 1); few candidate regulators per gene (see [Regulator slots](#regulator-slots-and-grema_slot_div)) give fewer false regulations.
+- The measured variable should be the activity of the regulator. If it is a promoter activity or if the regulator is changed after the translation (SOS: LexA is cleaved, its promoter activity rises while the protein falls), the signs can be wrong and the detection is weak.
+- **Check the signs.** On simulated networks the signs found were right in 92-100% when the model is right, but on the real IRMA data (7 regulations with a known sign) only 25-50% of the signs of the found true regulations were right (the baseline "every regulation `+`" is right in 71%).
+  A linear model has the same problem on this data (2-4 of 7 signs right), and simulations with a delay, an external input or a protein-level inhibition (all with Hill-type regulation) do not make the signs wrong, so it is not specific to the Hill function;
+  the reason is not known (see [experiments/SIGNS_REAL_DATA_REPORT.md](experiments/SIGNS_REAL_DATA_REPORT.md)). Use the `REGULATORY` sign of a real data set only after a check (`experiments/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`).
+
 ## Run GREMA
 
 ### Quick test
@@ -197,7 +217,7 @@ Example: [results of Dream4 size10 Network1](output/Dream4_10_1/final_results.tx
 |--------|-------------|
 | `TF` | Regulator. |
 | `GENE` | Target gene. |
-| `REGULATORY` | `+` activation, `-` repression, `0` no regulation. |
+| `REGULATORY` | `+` activation, `-` repression, `0` no regulation. The sign is the sign of the Hill coefficient; it was right in simulations but is not reliable on real data (IRMA: 25-50% right), see [Is my data suitable?](#is-my-data-suitable-experimentsscriptscheck_datapy). |
 | `CONFIDENCE_LEVEL` | `1 / iteration`, where *iteration* is the round of GREMA in which the regulation was determined. `1.000` means it was determined in the first round (the most reliable), `0.500` in the second round, `0.333` in the third, and so on. Regulations given by the knowledge file have `1.000`. |
 | `VOTE_SCORE` | A finer ranking score in [0, 1]: the fraction of the 30 runs (weighted by fitness) in which the regulation is used (`abs(parameter) > -min`), computed in the round in which the regulation was determined. It ignores the sign. Most `CONFIDENCE_LEVEL` values are `1.000`, so `VOTE_SCORE` can be used to rank the edges. Regulations given by the knowledge file have `1.000` (or `0.000` for `0`). |
 
