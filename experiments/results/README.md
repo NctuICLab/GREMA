@@ -106,3 +106,9 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `net1-5/` (no driver), `drv_transcription/net1-5`, `drv_cleavage/net1-5` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `signs.tsv`, `decay.tsv`; `sim_protein_net.py <dir> <seed> [--driver transcription|cleavage]`),
 `aug_d0.1|0.2|0.3/net1-5` (data with the filtered copies of the genes and the knowledge file in which only they may regulate; `augment_filtered.py`), `runs/base_net<k>` and `runs/d<D>_net<k>` (GREMA without a driver; the latter on the `aug_d<D>` data),
 `drv_*/runs/net<k>` (GREMA with a driver), `dyn/<none|transcription|cleavage>_<RF|ET>_net<k>/seed0-4` (dynGENIE3). `python3 experiments/scripts/eval_protein_sims.py <the unpacked archive>` prints the tables of the report.
+
+## `irma_sign_factors_results.tgz` (why the signs on real IRMA are wrong, see `experiments/SIGNS_REAL_DATA_REPORT.md` section 2)
+
+`irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
+`irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
+`python3 experiments/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.

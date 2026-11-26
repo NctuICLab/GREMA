@@ -167,7 +167,8 @@ What the analyses of this repository (reports in [experiments/](experiments)) fo
 - The number of series matters most for the detection (simulations: AUROC 0.91 with 4 series, 0.82 with 1); few candidate regulators per gene (see [Regulator slots](#regulator-slots-and-grema_slot_div)) give fewer false regulations.
 - The measured variable should be the activity of the regulator. If it is a promoter activity or if the regulator is changed after the translation (SOS: LexA is cleaved, its promoter activity rises while the protein falls), the signs can be wrong and the detection is weak.
 - **Check the signs.** On simulated networks the signs found were right in 92-100% when the model is right, but on the real IRMA data (7 regulations with a known sign) only 25-50% of the signs of the found true regulations were right (the baseline "every regulation `+`" is right in 71%).
-  Use the `REGULATORY` sign of a real data set only after a check (`experiments/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`).
+  A linear model has the same problem on this data (2-4 of 7 signs right), and simulations with a delay, an external input or a protein-level inhibition (all with Hill-type regulation) do not make the signs wrong, so it is not specific to the Hill function;
+  the reason is not known (see [experiments/SIGNS_REAL_DATA_REPORT.md](experiments/SIGNS_REAL_DATA_REPORT.md)). Use the `REGULATORY` sign of a real data set only after a check (`experiments/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`).
 
 ## Run GREMA
 
