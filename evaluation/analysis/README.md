@@ -28,6 +28,7 @@ evaluation/
 | [SIGN_SIMULATION_REPORT.md](SIGN_SIMULATION_REPORT.md) | Signs of GREMA on simulated signed networks: right (92-100%) with the model right and with seven mild misspecifications. | `sign_simulation_results.tgz` |
 | [PROTEIN_REGULATOR_REPORT.md](PROTEIN_REGULATOR_REPORT.md) | Promoter activity measured, protein regulators, a shared driver: collinearity lowers the detection; an opposite direction (cleavage) makes the signs wrong. | `sim_protein_results.tgz` |
 | [SIGNS_REAL_DATA_REPORT.md](SIGNS_REAL_DATA_REPORT.md) | On the real IRMA data only 25-50% of the signs are right; not caused by the amount of data, a delay, an input or a protein-level inhibition, and a linear model is as wrong; a check of the data before the run. | `irma_sign_factors_results.tgz` |
+| [HMSC_FEASIBILITY_REPORT.md](HMSC_FEASIBILITY_REPORT.md) | Can GREMA build a GRN from the internal hMSC time series (RNA-seq + ATAC-seq footprints, 1 series of 5 points)? No: nothing that uses the dynamics recovers the 11 TRRUST pairs; a footprint prior is weakly informative (odds ratio 2.7); changes that could matter. | `hmsc_feasibility_results.tgz` |
 
 ## Main findings (details and limits in the reports)
 
@@ -46,6 +47,7 @@ evaluation/
 | Simulations | `sim_gen.py` (IRMA topology), `sim_sos.py`, `sim_sos_p.py` (SOS with a hidden / measured LexA protein), `sim_signed_net.py` (random signed networks and variants), `sim_protein_net.py` (protein regulators, shared driver), `sim_irma_like.py` (IRMA-like with three switches) |
 | Other methods and filters | `dyngenie3_runner.py` (needs the dynGENIE3 code, see the report), `lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`, `gp_auto.py`, `gp_v2.py` (Gaussian-process augmentation) |
 | Signs and checks of the data | `eval_signs.py`, `eval_sim_variants.py`, `eval_protein_sims.py`, `eval_irma_like.py`, `eval_signs_real.py`, `linear_signs_irma.py`, `check_data.py` |
+| hMSC (RNA-seq + ATAC-seq) | `hmsc_prep.py` (inputs, TRRUST gold standard, footprint prior), `hmsc_prior_enrichment.py`, `hmsc_baselines.py`, `hmsc_time_control.py`, `hmsc_diagnose.py` |
 
 Python scripts need numpy, scipy and scikit-learn; `hsic_prefilter.py` also pyHSICLasso; `dyngenie3_runner.py` needs the dynGENIE3 code and was run in a pixi environment (see `METHODS_REPORT.md`).
 
@@ -69,6 +71,8 @@ The versioned part is `results/*.tgz` (the result files and the inputs needed to
 | `runs/irma` | IRMA: `baseline/` (the first runs: fixed seeds, prefix of the time series, perturbation sets, GP augmentation), `pt/` (perturbation sets T2, job lists `t2*_jobs.txt`), `gen/`, `gen500/` (generations T3, job lists `t3_*_jobs.txt`) | `IRMA_REPORT.md`, `HANDOFF.md` |
 | `runs/hackett_first` | the downloaded GEO page of the first Hackett exploration (`geo_page.html`) | `HACKETT_REPORT.md` |
 | `runs/archive_staging` | the staging folders (`pack*`, `unpack*`) from which the archives in `results/` were made and checked; nothing here is needed to continue | `results/README.md` |
+| `runs/hmsc` | the hMSC feasibility trial: `runx2/`, `multi/`, `multi150/` (inputs, GREMA runs `runs/`, dynGENIE3 `dyn_rf*`, time-shuffled inputs `shuf/`) | `HMSC_FEASIBILITY_REPORT.md` |
+| `external/trrust` | TRRUST v2 human TF -> gene pairs (public download, https://www.grnpedia.org/trrust/data/trrust_rawdata.human.tsv) | `HMSC_FEASIBILITY_REPORT.md` |
 | `logs/` | the launcher logs (`*.out`) | |
 
 
