@@ -28,6 +28,9 @@ my $n_max = 4;	# bound of the Hill coefficients n_ij of HFODE: -n_max <= n_ij <=
 my $noise_degree = 0;	# standard deviation of that noise, relative to the value
 my $select_top_no = 5;#number of top runs that vote for a regulation
 my $h_know_file;#S-system only
+my $input_list = "";	# names of the rows of the profile that are external inputs (HFODE only), comma separated
+my %is_input;	# input name => 1
+my $n_fit = 0;	# number of fitted genes (the targets); the variables are the fitted genes G.. followed by the inputs
 my %vote_score;#TF_GENE => fitness-weighted fraction of the runs of the first iteration that use the regulation
 
 
@@ -47,6 +50,8 @@ Options:
 	-perturb	[No] number of extra series made from the data by adding noise (HFODE only), default 0
 	-noise	[value] ex: 0.05 standard deviation of that noise relative to the value, needed with -perturb
 	-nmax	[value] HFODE only: bound of the Hill coefficients, -value <= n <= value, default is 4
+	-input	[list] HFODE only: names of the rows of the profile that are external inputs (a stimulus given for every series, not fitted, ex: U1,U2); an input can regulate a gene
+		(write it in the TF column of the knowledge file) but is never a target; the values must be on the scale of the genes (0.01 to 1); not with -perturb
 	-time	[list] HFODE only: sampling times of the time points, comma separated and increasing, ex: 0,5,10,15,20,30,45,90; default: equal steps of 1
 	-tunit	[value] the times of -time are divided by this value (the parameter ranges are made for steps of about 1), default is 1
 	-h	Show the usage
@@ -132,7 +137,14 @@ sub read_expression {
 	}
 	close PROFILE;
 	#sorted gene order, so the gene numbers (and the run.log mapping) are reproducible
-	my @all_gene = sort { natural_cmp($a,$b) } keys %{$profile_expression{1}};#get the gene name
+	my @all_name = sort { natural_cmp($a,$b) } keys %{$profile_expression{1}};#get the gene name
+	foreach my $in (keys %is_input){
+		die "-input: ".$in." is not a row of the profile ".$profile."\n" if(!defined $profile_expression{1}{$in});
+	}
+	#the fitted genes first, then the inputs (the numbers of the genes do not change when an input is added)
+	my @all_gene = ((grep { !$is_input{$_} } @all_name), (grep { $is_input{$_} } @all_name));
+	$n_fit = scalar(@all_name) - scalar(keys %is_input);
+	die "-input: no gene is left to fit\n" if($n_fit < 1);
 	my $gene_no = 0;
 	#the log is created here (mapping first); main() appends the run information
 	open LOG,">",$log_file or die "cannot write ".$log_file.": ".$!."\n";
@@ -140,7 +152,7 @@ sub read_expression {
 	foreach my $i (@all_gene){
 		#print STDERR $i."\n";
 		$gene_index{$gene_no} = $i;
-		print LOG $gene_no."\t".$i."\n";
+		print LOG $gene_no."\t".$i.($is_input{$i} ? "\tinput" : "")."\n";
 		$gene_no++;
 	}
 	close LOG;
@@ -193,6 +205,9 @@ sub read_knowledge {
 				print STDERR "Warning: knowledge file line ".$line_no.": ".$tf." or ".$gene." is not a gene of the profile, ignored\n";
 				next;
 			}
+			if($is_input{$gene}){
+				die "knowledge file ".$knowledge." line ".$line_no.": ".$gene." is an input (-input), it cannot be a target (GENE column)\n";
+			}
 			$knowledge{$tf}{$gene} = $regulation;
 			#print STDERR "TF:".$tf."\tGene:".$gene."\treg:".$regulation."\n";
 		}
@@ -202,16 +217,16 @@ sub read_knowledge {
 		die "knowledge file ".$knowledge." has no header line 'TF<tab>GENE<tab>REGULATORY'\n";
 	}
 	open INIT,">",$know_init_file or die "cannot write ".$know_init_file.": ".$!."\n";
-	for(my $i=0;$i<$total_gene_no;$i++){#each target gene
+	for(my $i=0;$i<$n_fit;$i++){#each target gene (an input is not a target)
 		my $gene_name = $gene_index{$i};
 		my $gene_name_generation = $gene_name."_0";#0 is the initial generation
 		my $regulation_knowledge;
 		#print STDERR $gene_name.": ";
-		for(my $j=0;$j<$total_gene_no;$j++){#each TF
+		for(my $j=0;$j<$total_gene_no;$j++){#each TF (the genes and the inputs)
 			my $tf_name = $gene_index{$j};
 			#print STDERR "TF:".$tf_name."\n";
 			my $v = $knowledge{$tf_name}{$gene_name};
-			$v = '?' if(!defined($v));
+			$v = ($is_input{$tf_name} ? '0' : '?') if(!defined($v));#an input that is not in the knowledge file does not regulate
 			print INIT $v." ";
 			$regulation_knowledge .= $v." ";
 		}
@@ -220,8 +235,16 @@ sub read_knowledge {
 		#print STDERR "fix_status_generation{".$gene_name_generation."}:".$fix_status_generation{$gene_name_generation}."\n";
 		print INIT "\n";
 	}
+	print_input_rows(\*INIT,$total_gene_no);
 	close INIT;
 	return %fix_status_generation;
+}
+#Rows of the knowledge matrix of the inputs (they are not targets): no connection. The solver reads one row per variable.
+sub print_input_rows {
+	my ($fh,$total_gene_no) = @_;
+	for(my $i=$n_fit;$i<$total_gene_no;$i++){
+		print $fh join(" ",("0") x $total_gene_no)." \n";
+	}
 }
 #S-system only: Hij are fixed to 0 (only Gij is used to determine the regulations)
 sub generate_h_knowledge {
@@ -370,10 +393,10 @@ sub run_quantification {
 	my $final_results = $output_dir."/final_results.txt";
 	#NOTE: the quantification rewrites <gene>.txt; the vote scores were therefore computed (and stored in
 	#%vote_score) in the iteration where the regulation was fixed, they are not recomputed here.
-	run_genes([0..($total_gene_no-1)],$gen,$use_know,$use_config);
+	run_genes([0..($n_fit-1)],$gen,$use_know,$use_config);
 	open FINAL,">",$final_results or die "cannot write ".$final_results.": ".$!."\n";
 	print FINAL "TF\tGENE\tREGULATORY\tCONFIDENCE_LEVEL\tVOTE_SCORE\n";
-	for(my $i=0; $i<$total_gene_no; $i++){
+	for(my $i=0; $i<$n_fit; $i++){
 		$gene_name = $gene_index{$i};
 		my $iga_results = $output_dir."/".$gene_name.".txt";
 		if(!-e $iga_results){
@@ -417,7 +440,7 @@ sub run_EMA {
 	print STDERR "Step2: GRN decomposition\n";
 	print STDERR "Step3: Parallel solving\n";
 	my @to_run;
-	for(my $i=0; $i<$total_gene_no; $i++){
+	for(my $i=0; $i<$n_fit; $i++){
 		if($fix_value[$i]){
 			$gene_name = $gene_index{$i};
 			print STDERR $gene_name ." is finished\n";
@@ -429,7 +452,7 @@ sub run_EMA {
 	print STDERR "Step4: Regulation determination\n";
 	open KNOW,">",$new_know or die "cannot write ".$new_know.": ".$!."\n";
 	my ($n_start,$n_end) = regulation_columns($total_gene_no);
-	for(my $i=0; $i<$total_gene_no; $i++){
+	for(my $i=0; $i<$n_fit; $i++){
 		$gene_name = $gene_index{$i};
 		if($fix_value[$i]){
 			#fully fixed gene: it was not run (no <gene>.txt), its knowledge is carried forward
@@ -545,6 +568,7 @@ sub run_EMA {
 		}
 		print KNOW $know_info."\n";
 	}
+	print_input_rows(\*KNOW,$total_gene_no);
 	close KNOW or die "cannot write ".$new_know.": ".$!."\n";
 	return (\%confidence_level, \%fix_status_generation);
 }
@@ -680,7 +704,8 @@ sub main {
 	my $use_knowledge = $tmp_dir."/".$knowledge_filename."_ForStep".$generation.".txt";
 	print STDERR "know_init:".$use_knowledge."\n";
 	my ($total_gene,$total_repeat,$total_data_points,%profile) = read_expression($expression,$log);
-	print STDERR "Number of gene:".$total_gene."\n";
+	print STDERR "Number of gene:".$n_fit."\n";
+	print STDERR "Number of inputs:".($total_gene-$n_fit)."\n" if($total_gene > $n_fit);
 	%fix_status = read_knowledge($total_gene,$use_knowledge);#generate the initial knowledge
 	if(!-e $use_knowledge){
 		print STDERR "generate initial knowledge failed <".$use_knowledge.">\n";die;
@@ -693,19 +718,21 @@ sub main {
 
 	#the mapping RUN_ID->GENE_NAME was written by read_expression, append the run information
 	open LOG,">>",$log or die "cannot write ".$log.": ".$!."\n";
-	print LOG "Total gene:".$total_gene."\nTotal repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
+	print LOG "Total gene:".$n_fit."\n";
+	print LOG "Inputs:".join(",",map { $gene_index{$_} } ($n_fit..($total_gene-1)))."\n" if($total_gene > $n_fit);
+	print LOG "Total repeat:".$total_repeat."\nTotal data points:".$total_data_points."\n";
 	print LOG "Use know init:".$use_knowledge."\nUse config:".$config."\nUse input data:".$expression."\n";
 	print LOG "Use Fitness".$fitness_type."\nUse threads:".$threads."\nUse generation:".$generation_no."\nUse CC:".$cc."\nUse min:".$min."\n";
 	close LOG;
 
 	print STDERR "Step1: Initialisation\n";
-	for(my $i=0;$i<$total_gene;$i++){
+	for(my $i=0;$i<$n_fit;$i++){
 		($fix[$i], $fix_knowledge_ref) = check_knowledge($use_knowledge,$i,\%fix_knowledge);
 		%fix_knowledge = %{$fix_knowledge_ref};
 		$total_fix_no += $fix[$i];
 	}
 	print STDERR "Initial Generation ".$generation." fix: ".$total_fix_no."\n";
-	if($total_fix_no == $total_gene){
+	if($total_fix_no == $n_fit){
 		$all_fix = 1;
 	}
 
@@ -723,7 +750,7 @@ sub main {
 			my $new_knowledge_file = $tmp_dir."/".$knowledge_filename."_ForStep".$generation.".txt";
 			$total_fix_no = 0;
 			print STDERR "Step5: GRN combination\n";
-			for(my $i=0;$i<$total_gene;$i++){
+			for(my $i=0;$i<$n_fit;$i++){
 				($fix[$i],$fix_knowledge_ref) = check_knowledge($new_knowledge_file,$i,\%fix_knowledge);
 				%fix_knowledge = %{$fix_knowledge_ref};
 				#print STDERR "fix[".$i."]:".$fix[$i]."\n";
@@ -733,7 +760,7 @@ sub main {
 			my $last_gen = $generation - 1;
 			print STDERR "Generation ".$last_gen." finish, fix: ".$total_fix_no."\n";
 			print STDERR "Step6: Qualitative termination test\n";
-			if($total_fix_no == $total_gene){
+			if($total_fix_no == $n_fit){
 				$all_fix = 1;
 				print STDERR "All regulations are determined, go to Step8\n";
 			}else{
@@ -764,6 +791,7 @@ GetOptions(
 	'noise=f'	=>\$noise_degree,
 	'nmax=f'	=>\$n_max,
 	'time=s'	=>\$time_list,
+	'input=s'	=>\$input_list,
 	'tunit=f'	=>\$time_unit,
 	'h'	=>\$help,
 ); 
@@ -777,6 +805,25 @@ if($perturb_no < 0 || $noise_degree < 0 || ($perturb_no > 0 && $noise_degree <= 
 if($perturb_no > 0 && $model ne "HFODE"){
 	print STDERR "-perturb is only supported with the HFODE model\n";
 	Usage();die;
+}
+if($input_list ne ""){
+	if($model ne "HFODE"){
+		print STDERR "-input is only supported with the HFODE model\n";
+		Usage();die;
+	}
+	if($perturb_no > 0){
+		print STDERR "-input cannot be used with -perturb\n";
+		Usage();die;
+	}
+	foreach my $in (split(/[,\s]+/,$input_list)){
+		next if($in eq "");
+		die "-input: ".$in." is given twice\n" if($is_input{$in});
+		$is_input{$in} = 1;
+	}
+	if(!%is_input){
+		print STDERR "-input needs at least one name\n";
+		Usage();die;
+	}
 }
 if($time_unit <= 0){
 	print STDERR "-tunit must be > 0\n";
