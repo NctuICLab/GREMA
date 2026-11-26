@@ -108,6 +108,7 @@ Options:
 | `-nmax` | no | (HFODE only) Bound of the Hill coefficients, `-nmax <= n <= nmax`. Default `4`. On the Hackett data a bound of 8 gave the same ranking as 4 (the coefficients grow until they reach the bound), see [evaluation/analysis/METHODS_REPORT.md](evaluation/analysis/METHODS_REPORT.md). |
 | `-time` | no | (HFODE only) The real sampling times of the time points, comma separated and strictly increasing, one value for every time point of the input, ex: `-time 0,5,10,15,20,30,45,90`. Without it the time points are equally spaced (step 1). With it the model is integrated over the real interval between two time points (explicit Euler steps of at most 1, the observed expression of the other genes interpolated linearly inside the interval) and the derivative term of `-f 2/3/4` uses the real interval. Use `-tunit` so that the typical interval is about 1 (the ranges of the parameters are made for steps of about 1). Not available for S-system. |
 | `-tunit` | no | The times of `-time` are divided by this value, default `1`; ex: `-time 0,5,10,15,20,30,45,90 -tunit 5` (the median interval of 5 minutes becomes 1). |
+| `-input` | no | (HFODE only) Names of the rows of the time-series file that are **external inputs** (a stimulus that you give for every series: UV dose, medium, ligand, ...), comma separated, ex: `-input U1,U2`. An input is not fitted and is never a target; it can regulate genes (see [External inputs](#external-inputs--input)). Not with `-perturb`. |
 | `-perturb` | no | (HFODE only) Number of extra time series that are made from the data and fitted together with it, default `0` (off). Extra series number `i` is a copy of replicate `(i mod number of replicates)` with Gaussian noise added to every value (see `-noise`); with 3 replicates and `-perturb 9` every replicate is copied 3 times. The extra series are used like additional experiments in the fitness, the observed data are not changed. Needs `-noise`. |
 | `-noise` | with `-perturb` | Standard deviation of that noise **relative to the value**: a value `x` becomes a draw from a normal distribution with mean `x` and standard deviation `noise * x` (`0.05` = 5%), drawn independently for every gene and time point (also the first one). Must be larger than 0 when `-perturb` is used and has no effect without it. |
 
@@ -142,6 +143,28 @@ What the experiments showed (details in [evaluation/analysis/SOS_REPORT.md](eval
 SOS (8 candidates, 8 / 3 / 2 slots): FP 33.6 / 21.8 / 14.8 and TP 6.4 / 6.0 / 3.4, the default (3) had the best AUROC. 56 genes with 10 TFs as regulators (10 / 3 / 2 slots): FP 267 / 154 / 98, TP 13.7 / 10.3 / 9.0, vote AUROC 0.67 / 0.70 / 0.72.
 This was seen on few runs and two data sets; if the true regulation is sparse (a few regulators per gene) a smaller number of slots is worth trying, but there is no setting that is best everywhere.
 The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_SLOT_DIV` (only the production term `g_ij` has slots, the `h_ij` are fixed to 0). Before this version it always used `round(N/3)` slots, with `N` the number of genes, and could not be changed: on IRMA (4 candidates per gene) that was 2 slots, now it is 1 (`round(4/3)`).
+
+## External inputs (`-input`)
+
+A stimulus that drives the genes from outside (UV light, a change of the medium, a ligand, a differentiation signal) cannot be written as a regulation between genes.
+Without it, GREMA learns the common response of all genes to the stimulus as regulation between them, and a model fitted in one condition does not carry over to another
+([evaluation/analysis/IRMA_PREDICTION_REPORT.md](evaluation/analysis/IRMA_PREDICTION_REPORT.md)). With `-input` the stimulus is a regulator whose time course **you give**; GREMA estimates which genes respond to it and how.
+
+**Model** (HFODE): `dx_i/dt = TransMax_i * prod_j 1/(1+(k_ij/x_j)^n_ij) * prod_m 1/(1+(k_im/u_m(t))^n_im) + b_i - degrade_i * x_i`; the first product is over the genes, the second over the inputs `u_m(t)`.
+`n_im > 0`: the input activates gene `i`, `n_im < 0`: it represses it. The input uses the same parameter ranges, regulator slots, voting and `+ - ? 0` knowledge as a gene, but it is never a target.
+
+**Files**
+- Time-series file: one row per series for each input, like a gene (`rep1<TAB>U1<TAB>0.01<TAB>0.01<TAB>1.0<TAB>...`). The values must be on the scale of the genes, **0.01 to 1** (GREMA cannot use 0): scale the input with the same linear map as the genes, or let [`make_input.py`](evaluation/analysis/scripts/make_input.py) do it from a small table of start times and levels.
+- Knowledge file: write the input in the `TF` column: `U1<TAB>G3<TAB>?`. An input that has no line does not regulate (`0`); it cannot be in the `GENE` column. For a run without prior knowledge write `U1<TAB>G<i><TAB>?` for every gene.
+- Output: `final_results.txt` has the lines `U1<TAB>G3<TAB>+<TAB>...`; the genes keep their numbers (`run.log` lists the inputs last).
+
+**What makes an input identifiable.** The effect of the input is learnt from how the genes respond when it changes, so use at least two series in which the input has a different level or a different start time, and at least 8 time points.
+An input that is the same in every series (for example one stimulus in a single time course) has the shape of the time index and cannot be told from the programme of the cell, and an input that is constant gives nothing.
+`python3 evaluation/analysis/scripts/check_data.py DATA.txt --input U1` says so before the run. The shape of the input is your choice and the result depends on it: try a second shape
+(`make_input.py ... --shape decay --halftime H`) and compare. Not supported with `-perturb` and the S-system model; `-time` works (the input is interpolated like the genes).
+
+**Simulating a new condition** with the fitted model: `python3 evaluation/analysis/scripts/grema_simulate.py --runs OUTPUT_DIR --data NEW.txt --inputs U1 --score`
+(`NEW.txt`: the initial values of the genes and the input time course of the new condition). A worked example is in [evaluation/analysis/examples/irma_input](evaluation/analysis/examples/irma_input/README.md).
 
 ## Models
 
