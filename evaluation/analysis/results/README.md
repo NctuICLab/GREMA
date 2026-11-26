@@ -112,3 +112,9 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
 `python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+
+## `irma_predict_results.tgz` (prediction of one IRMA condition from the other, see `evaluation/analysis/IRMA_PREDICTION_REPORT.md`)
+
+`irma_predict/<on|off>_<def|div2>_r<1-5>/out/{G1..G5.txt,final_results.txt}` (30 runs per gene: b, TransMax, n(1..5), k(1..5), degrade, fitness, one trailing field) and `jobs.txt`.
+`python3 evaluation/analysis/scripts/predict_irma.py <unpacked>/irma_predict` prints the table of the report (it reads the IRMA inputs of `input/IRMA`).
+

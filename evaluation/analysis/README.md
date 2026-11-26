@@ -28,6 +28,7 @@ evaluation/
 | [SIGN_SIMULATION_REPORT.md](SIGN_SIMULATION_REPORT.md) | Signs of GREMA on simulated signed networks: right (92-100%) with the model right and with seven mild misspecifications. | `sign_simulation_results.tgz` |
 | [PROTEIN_REGULATOR_REPORT.md](PROTEIN_REGULATOR_REPORT.md) | Promoter activity measured, protein regulators, a shared driver: collinearity lowers the detection; an opposite direction (cleavage) makes the signs wrong. | `sim_protein_results.tgz` |
 | [SIGNS_REAL_DATA_REPORT.md](SIGNS_REAL_DATA_REPORT.md) | On the real IRMA data only 25-50% of the signs are right; not caused by the amount of data, a delay, an input or a protein-level inhibition, and a linear model is as wrong; a check of the data before the run. | `irma_sign_factors_results.tgz` |
+| [IRMA_PREDICTION_REPORT.md](IRMA_PREDICTION_REPORT.md) | Does the model fitted on IRMA switch-on predict switch-off (and the reverse)? No: skill -4.7 free-running, worse than persistence; in-sample 0.95. The model has no external input. | `irma_predict_results.tgz` |
 
 ## Main findings (details and limits in the reports)
 
@@ -46,6 +47,7 @@ evaluation/
 | Simulations | `sim_gen.py` (IRMA topology), `sim_sos.py`, `sim_sos_p.py` (SOS with a hidden / measured LexA protein), `sim_signed_net.py` (random signed networks and variants), `sim_protein_net.py` (protein regulators, shared driver), `sim_irma_like.py` (IRMA-like with three switches) |
 | Other methods and filters | `dyngenie3_runner.py` (needs the dynGENIE3 code, see the report), `lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`, `gp_auto.py`, `gp_v2.py` (Gaussian-process augmentation) |
 | Signs and checks of the data | `eval_signs.py`, `eval_sim_variants.py`, `eval_protein_sims.py`, `eval_irma_like.py`, `eval_signs_real.py`, `linear_signs_irma.py`, `check_data.py` |
+| Prediction | `predict_irma.py` (free-running simulation of the fitted HFODE model on another condition, baselines) |
 
 Python scripts need numpy, scipy and scikit-learn; `hsic_prefilter.py` also pyHSICLasso; `dyngenie3_runner.py` needs the dynGENIE3 code and was run in a pixi environment (see `METHODS_REPORT.md`).
 
@@ -67,6 +69,7 @@ The versioned part is `results/*.tgz` (the result files and the inputs needed to
 | `runs/sim_signed`, `runs/sim_protein`, `runs/sim_irma_signs`, `runs/sim_irma_like` | the simulated signed networks and their variants, the protein regulators with a shared driver, the IRMA-topology and the IRMA-like simulations | `SIGN_SIMULATION_REPORT.md`, `PROTEIN_REGULATOR_REPORT.md`, `SIGNS_REAL_DATA_REPORT.md` |
 | `runs/sos` | SOS with 4 experiments: `sos4` (`-f 1`, `-f 3`, first batch, job list `t1_jobs.txt`), `sos4_slot1`, `sos4_slot4`, `sos4_g1000`, `sos4_selfrep` (regulator slots, 1000 generations, LexA self-repression fixed), the SOS simulations `sim_sos`, `sim_sos_p`, and `first_runs/` (the 1-experiment and 4-experiment runs of the first analysis) | `SOS_REPORT.md`, `PROTEIN_REGULATOR_REPORT.md` |
 | `runs/irma` | IRMA: `baseline/` (the first runs: fixed seeds, prefix of the time series, perturbation sets, GP augmentation), `pt/` (perturbation sets T2, job lists `t2*_jobs.txt`), `gen/`, `gen500/` (generations T3, job lists `t3_*_jobs.txt`) | `IRMA_REPORT.md`, `HANDOFF.md` |
+| `runs/irma/predict` | the IRMA runs of the prediction test (switch-on and switch-off, default slots and two slots, 5 runs each) | `IRMA_PREDICTION_REPORT.md` |
 | `runs/hackett_first` | the downloaded GEO page of the first Hackett exploration (`geo_page.html`) | `HACKETT_REPORT.md` |
 | `runs/archive_staging` | the staging folders (`pack*`, `unpack*`) from which the archives in `results/` were made and checked; nothing here is needed to continue | `results/README.md` |
 | `logs/` | the launcher logs (`*.out`) | |
