@@ -12,6 +12,7 @@ evaluation/
     *_REPORT.md, HANDOFF.md     the reports (table below)
     scripts/                    scripts of the analyses (table below)
     results/                    archived results (*.tgz) and results/README.md (what is in each archive)
+  analysis_runs/                run directories, downloaded data, logs (not in git; see below)
 ```
 
 ## Reports
@@ -47,6 +48,25 @@ evaluation/
 | Signs and checks of the data | `eval_signs.py`, `eval_sim_variants.py`, `eval_protein_sims.py`, `eval_irma_like.py`, `eval_signs_real.py`, `linear_signs_irma.py`, `check_data.py` |
 
 Python scripts need numpy, scipy and scikit-learn; `hsic_prefilter.py` also pyHSICLasso; `dyngenie3_runner.py` needs the dynGENIE3 code and was run in a pixi environment (see `METHODS_REPORT.md`).
+
+## Run directories, downloaded data and logs (`evaluation/analysis_runs/`, not in git)
+
+The full outputs of the runs, the simulated and the downloaded data and the logs of the analyses are in `evaluation/analysis_runs/` (listed in `.gitignore`; about 1.7 GB, on the machine where the analyses were run; the archives in `results/` are the part that is versioned).
+
+| Folder | Content | Report |
+|---|---|---|
+| `external/hackett_data`, `external/hackett_gold` | the processed expression matrices of GEO GSE142864 and the platform table; the gold standard of Ma et al. (2014) | `HACKETT_REPORT.md` |
+| `external/dyngenie_src`, `external/dyngenie_pixi` | the dynGENIE3 code (downloaded, read before use) and the pixi environment of the Python packages (numpy, scikit-learn, scipy, pandas, pyHSICLasso, pypdf) | `METHODS_REPORT.md` |
+| `external/irma_ref` | the paper that was used for the signs of IRMA | `SIGNS_REAL_DATA_REPORT.md` |
+| `runs/hackett_runs`, `runs/set2`, `runs/rawtime_runs`, `runs/time_test` | the Hackett designs (first and second TF subset, small networks, the measured time points) and the GREMA runs on them; the tests of `-time` | `HACKETT_REPORT.md`, `METHODS_REPORT.md` sections 7 and 8 |
+| `runs/irma_slots`, `runs/ssystem_slots`, `runs/ssystem_runs`, `runs/ss_orient` | HFODE and S-system on IRMA with 1 / 2 / 4 regulator slots, the first S-system batch, the test of the direction of the S-system output | `SSYSTEM_SLOTS_REPORT.md` |
+| `runs/contrast_runs`, `runs/nmin_runs`, `runs/dyngenie_runs` | runs that keep every iteration (contrast score), `-nmax` / `-min`, dynGENIE3 on IRMA, SOS and Hackett | `METHODS_REPORT.md` sections 2-3 |
+| `runs/perm_control` | the experiment-permuted data sets and the runs on them | `METHODS_REPORT.md` section 1 |
+| `runs/prefilter`, `runs/prefilter_hsic`, `runs/hill_dict`, `runs/hill_dict_perm`, `runs/prefilter_runs`, `runs/prefilter_hsic_runs`, `runs/hill_dict_runs` | the LASSO, HSIC-Lasso and Hill-dictionary filters (scores and filtered knowledge files) and GREMA on the filtered knowledge files | `METHODS_REPORT.md` section 4 |
+| `runs/sim_signed`, `runs/sim_protein`, `runs/sim_irma_signs`, `runs/sim_irma_like` | the simulated signed networks and their variants, the protein regulators with a shared driver, the IRMA-topology and the IRMA-like simulations | `SIGN_SIMULATION_REPORT.md`, `PROTEIN_REGULATOR_REPORT.md`, `SIGNS_REAL_DATA_REPORT.md` |
+| `logs/` | the launcher logs (`*.out`) | |
+
+The first runs (SOS with 4 experiments, the IRMA baseline of `final_results.tgz`) were made in the home directory of the machine (`~/grema_runs/`) and are not in this folder. The pixi environment is rebuilt with `pixi install` in `external/dyngenie_pixi` if it is moved again.
 
 ## Archived results (`results/`)
 
