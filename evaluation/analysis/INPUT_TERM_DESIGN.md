@@ -30,7 +30,10 @@ dx_i/dt = TransMax_i * prod_{j in R_i} 1/(1+(k_ij/x_j)^n_ij) * prod_{m in M_i} 1
 | Variables | `G`s first, then inputs, so the gene numbers and `run.log` are unchanged; `num_var = num_tf = genes + inputs`; the genes that are fitted are the first `genes` (the loop of `GREMA_main.pl` runs over them only) |
 | Slots | the candidates of a gene include the inputs marked `?` (rules and `GREMA_SLOT_DIV` as now) |
 | Simulation | new `scripts/grema_simulate.py` (from `predict_irma.py`): the best row of each gene, or the ensemble of the runs, a data file with the initial values and the input series of a new condition -> predicted time courses |
-| Data check | `check_data.py` warns when an input is constant, when it has the same shape as the time index in every series (not identifiable), or when it is identical in all series |
+| Input builder | new `scripts/make_input.py`: from a small table (one line per series: name, start time, level, duration, optional end level; or a column of measured values) it writes the input rows, scaled with the same linear map as the genes (`--like DATA.txt`) and aligned to the time points of the data (`-time`), ready to be appended to the data file; the user does not write the numbers by hand |
+| Data check | `check_data.py` (with the data file, `-input` and the knowledge file) warns when an input is constant, when it has the same shape as the time index in every series (not identifiable), when it is identical in all series, when it is not on the scale of the genes, or when the series have different numbers of points; it also prints a design hint (at least two different levels or start times, at least 8 points) |
+| Shape sensitivity | `scripts/input_sensitivity.sh` (or `make_input.py --shapes step,decay`): the same run for two shapes of the same input (a step and a step followed by a decay with a given half-time); a table of the input edges, their signs and the held-out skill for each shape, so that the user sees how much the result depends on the shape she chose |
+| Example | `evaluation/analysis/examples/irma_input/`: IRMA switch-on and switch-off with the medium as input, from the original files to the held-out prediction, with the commands and the expected numbers; the template for new data |
 
 Without `-input` nothing changes: the same input, config and knowledge files and the same solver command lines (the runs themselves are random, there is no seed option, so a regression test compares the files and the statistics of the results, not the bits).
 
@@ -56,9 +59,13 @@ To be confirmed in the first step of the implementation: how `EMA_main.cpp` / `M
 3. **SOS, held-out dose**: input = the UV dose (4 experiments: 2 at 5 and 2 at 20 J/m^2, a step at the time of the exposure, 0.01 to a level proportional to the dose); fit on one dose, predict the other, both ways; the experiment-permutation control with the dose labels shuffled. The edges and signs (all LexA edges are `+` now) are secondary. Two input shapes (a step and a decay) to see how much the result depends on the shape.
    *Pass*: held-out skill above the baselines and the shuffled control clearly worse.
 
+4. **The tools** (`make_input.py`, `check_data.py`, `input_sensitivity.sh`): `make_input.py` writes the same input rows as the hand-written ones of tests 1-3; `check_data.py` raises the warning for each of the four bad inputs (constant, same shape as the time, identical in all series, wrong scale) and none for the inputs of tests 1-3; the example in `examples/irma_input/` runs from a clean checkout with the commands of its README and gives the numbers in it.
+
 Passing 1 only shows that the implementation works; the claim "the model carries over to a new input" needs 2 or 3 as well. A failure of 2 and 3 with a pass of 1 would mean the real systems differ from the model (the protein stage, for example), and is reported as such.
 
 ## 6. Limits that stay
+
+**When an input does not help** (the data check says so): observational series without a stimulus; a stimulus that is a single step in one series (it has the shape of the time index, so it cannot be told from the program of the cell: this is the case of the present hMSC differentiation series); an input that is the same in every series. A useful experiment has at least two series with a different level or start time of the stimulus, and at least 8 time points.
 
 The number of time points and series (`check_data.py`), signs on real data (25-50% on IRMA, cause unknown), regulation at the protein level when the mRNA is measured, large networks (module level and priors are separate work), and rules of the network that change with the cell state.
 
@@ -68,4 +75,5 @@ The number of time points and series (`check_data.py`), signs on real data (25-5
 2. **Input profile**: given by the user, scaled to [0.01, 1] (recommended; two shapes tested for SOS) or fitted?
 3. **First scope**: HFODE only, with `-time` supported, S-system not (recommended, as for `-time`)?
 4. **IRMA joint fit**: the two conditions have 16 and 21 points and the data format needs one number of points; cut switch-off to 16 points (recommended for the test) or allow series of different length (a larger change)?
-5. **Phase 2** (a delay for the protein stage): in or out of this work?
+5. **Tools for the user** (`make_input.py`, the extended `check_data.py`, `input_sensitivity.sh`, the example): in the first version, or the first version with only the format and the example?
+6. **Phase 2** (a delay for the protein stage): in or out of this work?
