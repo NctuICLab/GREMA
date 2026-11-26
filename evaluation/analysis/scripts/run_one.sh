@@ -6,7 +6,7 @@
 # OUTDIR gets work/ (input copy), out/ (GREMA output, final_results.txt is in out/) and log.txt.
 # A line "<name> exit=<code>" is appended to $DONELOG (default: OUTDIR/../done.log).
 # GREMA_ROOT defaults to the repository that holds this script.
-ROOT=${GREMA_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
+ROOT=${GREMA_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
 out=$1; in=$2; know=$3; shift 3
 rm -rf "$out"; mkdir -p "$out/work" "$out/out" || exit 1
 out=$(cd "$out" && pwd)

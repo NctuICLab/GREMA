@@ -1,6 +1,6 @@
 # GREMA against dynGENIE3, and attempts to improve GREMA (IRMA, SOS, Hackett)
 
-Archive of the runs and inputs: `experiments/results/methods_comparison_results.tgz` (see `experiments/results/README.md`).
+Archive of the runs and inputs: `evaluation/analysis/results/methods_comparison_results.tgz` (see `evaluation/analysis/results/README.md`).
 All numbers are AUROC / AUPRC of the ranking of the TF -> gene pairs against the gold standard, mean over the runs; `vote` = VOTE_SCORE, `conf` = CONFIDENCE_LEVEL of GREMA
 (HFODE, `-f 1`, `-g 500`). The gold standard defines the evaluated pairs and the metrics only; no setting was chosen with it. The rules of every comparison were written
 before its results were looked at (the exceptions are marked). Differences below about 0.05 AUROC are noise.
@@ -14,11 +14,11 @@ before its results were looked at (the exceptions are marked). Differences below
 | evaluated pairs / true edges | 20 / 8 | 56 (non-self) / 7 | 550 / 18 (gold network 3 of Ma et al. 2014) |
 | random AUROC / AUPRC | 0.5 / 0.4 | 0.5 / 0.125 | 0.5 / 0.033 |
 
-Hackett data: GEO GSE142864 (a **microarray**, not RNA-seq), design and rules in `experiments/HACKETT_REPORT.md`.
+Hackett data: GEO GSE142864 (a **microarray**, not RNA-seq), design and rules in `evaluation/analysis/HACKETT_REPORT.md`.
 
 **SOS cannot rank methods by their regulation inference (control experiments).**
 - A random forest predicts the rate of change dx/dt of the genes from the time index alone as well as from all other genes (out-of-bag R^2 0.49 vs 0.51; one gene alone: G1 0.41, G4 0.37, G5 0.34, G2 0.27, G6-G8 about 0): all genes follow the same UV time course, so any gene works as a "clock".
-- Experiment permutation (`experiments/scripts/permute_replicates.py`: every gene takes its series from a randomly chosen experiment, time points stay aligned; this destroys the coupling of the genes inside an experiment and keeps the shared time course):
+- Experiment permutation (`evaluation/analysis/scripts/permute_replicates.py`: every gene takes its series from a randomly chosen experiment, time points stay aligned; this destroys the coupling of the genes inside an experiment and keeps the shared time course):
 
 | | original | permuted |
 |---|---|---|
@@ -34,7 +34,7 @@ Hackett data: GEO GSE142864 (a **microarray**, not RNA-seq), design and rules in
 
 ## 2. dynGENIE3 against GREMA
 
-dynGENIE3 (Huynh-Thu and Geurts 2018, original Python code, default parameters, RF and ET, 10 seeds, `experiments/scripts/dyngenie3_runner.py`; same input files as GREMA, the candidate regulators restricted like the knowledge file).
+dynGENIE3 (Huynh-Thu and Geurts 2018, original Python code, default parameters, RF and ET, 10 seeds, `evaluation/analysis/scripts/dyngenie3_runner.py`; same input files as GREMA, the candidate regulators restricted like the knowledge file).
 
 | Data | dynGENIE3 RF | dynGENIE3 ET | GREMA vote (conf) |
 |---|---|---|---|
@@ -49,8 +49,8 @@ dynGENIE3 gives no signs. No evidence was found that GREMA beats dynGENIE3 on th
 ## 3. What the edge scores of GREMA are
 
 - With `-min 0` a candidate counts as used when it is in the random subset of regulator slots of a GA run (the Hill coefficient is exactly 0 otherwise; on SOS 56.6% of the entries are 0, 99% of the others have |n| > 0.1 and the median |n| is 3.97 with the bound 4): VOTE_SCORE is the fitness-weighted frequency of being in the subset.
-- Contrast score (`experiments/scripts/contrast_scores.py`, fixed beforehand: Welch t of log fitness without vs with the candidate in the first-iteration runs): **worse** than vote: SOS 0.424 (vote 0.750), IRMA on 0.392 (0.785), IRMA off 0.713 (0.609), Hackett 3 / 2 slots 0.480 / 0.422 (0.707 / 0.736). Negative result.
-- Post-processing of vote (`experiments/scripts/postprocess_scores.py`, fixed beforehand; paired runs): A1 = z score of vote within every target, A2 = vote / sum of the target, B = mean rank of vote and dynGENIE3 (RF or ET):
+- Contrast score (`evaluation/analysis/scripts/contrast_scores.py`, fixed beforehand: Welch t of log fitness without vs with the candidate in the first-iteration runs): **worse** than vote: SOS 0.424 (vote 0.750), IRMA on 0.392 (0.785), IRMA off 0.713 (0.609), Hackett 3 / 2 slots 0.480 / 0.422 (0.707 / 0.736). Negative result.
+- Post-processing of vote (`evaluation/analysis/scripts/postprocess_scores.py`, fixed beforehand; paired runs): A1 = z score of vote within every target, A2 = vote / sum of the target, B = mean rank of vote and dynGENIE3 (RF or ET):
 
 | Data | vote | A1 | A2 | dynRF | B (+RF) | B (+ET) |
 |---|---|---|---|---|---|---|
@@ -65,7 +65,7 @@ dynGENIE3 gives no signs. No evidence was found that GREMA beats dynGENIE3 on th
 ## 4. Candidate filters before GREMA
 
 Three filters choose, for every target gene, the K = ceil(candidates / 2) best candidates (the others get `0` in the knowledge file), with 200 (LASSO), 100 (HSIC-Lasso) and 200 (Hill dictionary) stability-selection subsamples of 50% of the rows
-(`experiments/scripts/lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`; rules in the docstrings). Final score of a pair = vote of the GREMA run (0 for the filtered pairs) + 1e-4 x the filter score (`eval_prefilter.py`).
+(`evaluation/analysis/scripts/lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`; rules in the docstrings). Final score of a pair = vote of the GREMA run (0 for the filtered pairs) + 1e-4 x the filter score (`eval_prefilter.py`).
 
 | Filter | model of the target's rate of change |
 |---|---|
@@ -105,13 +105,13 @@ End to end (GREMA on the filtered knowledge, final score as above; unfiltered GR
 ## 6. Code and documentation changes in this PR
 
 - `GREMA_main.pl`: the GA results of every iteration are kept (`<output>/iga_results/<gene>_step<k>.txt`, switch off with `GREMA_KEEP_ITER=0`); `<gene>.txt` was overwritten by each iteration. New option `-nmax` (bound of the Hill coefficients, default 4 as before).
-- `README.md`: both are documented. New scripts in `experiments/scripts/` (see the docstrings): `dyngenie3_runner.py`, `permute_replicates.py`, `contrast_scores.py`, `postprocess_scores.py`, `lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`, `eval_prefilter.py`.
+- `README.md`: both are documented. New scripts in `evaluation/analysis/scripts/` (see the docstrings): `dyngenie3_runner.py`, `permute_replicates.py`, `contrast_scores.py`, `postprocess_scores.py`, `lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`, `eval_prefilter.py`.
 - The dynGENIE3 code (https://github.com/vahuynh/dynGENIE3) was not copied into the repository; the Python environment was built with pixi (numpy, scikit-learn, scipy, pandas, pyHSICLasso).
 
 ## 7. Independent check with a second TF subset of the Hackett data
 
 Same procedure (`hackett_prep.py --per-tf 10 --network 3 --step 15`), but the TFs ranked 11-20 by the number of responding genes (`--skip-tfs 10`; fixed before the runs): GCN4, SWI6, ROX1, RME1, SOK2, STB5, RTG3, NRG1, SKO1, CIN5
-(55 variables, 540 pairs, 18 gold edges; the first subset was SFP1, GLN3, STE12, YOX1, PHO4, MOT3, YAP1, SUM1, ACE2, RLM1; the TFs are disjoint, some genes are shared). Archive: `experiments/results/hackett_set2_results.tgz`.
+(55 variables, 540 pairs, 18 gold edges; the first subset was SFP1, GLN3, STE12, YOX1, PHO4, MOT3, YAP1, SUM1, ACE2, RLM1; the TFs are disjoint, some genes are shared). Archive: `evaluation/analysis/results/hackett_set2_results.tgz`.
 Compared (fixed beforehand): dynGENIE3 RF / ET (10 seeds), the Hill dictionary alone (3 seeds), GREMA with 2 slots (3 runs), the Hill dictionary filter + GREMA (3 runs), and the experiment-permutation control for dynGENIE3 and the Hill dictionary.
 
 | Method | first TF subset | second TF subset |
@@ -135,7 +135,7 @@ HFODE used equal time steps (`delta_t = 1`), so the 8 measured time points of Ha
 The times are divided by `-tunit` so that the typical interval is about 1 (here the median interval of 5 minutes, `-tunit 5`: 0,1,2,3,4,6,9,18). Without `-time` nothing changes.
 
 - Check of the equal-step case (IRMA switch-on, 5 runs each, `-time 0,1,...,15` against no option): conf 0.702 / 0.708, vote 0.785 / 0.782: the same within the noise.
-- Hackett, both TF subsets, GREMA 2 slots, `-f 1`, `-g 500`, 3 runs each, the 8 measured points with the real times against the 15 min grid of sections 2-7 (AUROC / AUPRC; `experiments/scripts/hackett_prep.py --step 0`; archive `experiments/results/real_time_points_results.tgz`):
+- Hackett, both TF subsets, GREMA 2 slots, `-f 1`, `-g 500`, 3 runs each, the 8 measured points with the real times against the 15 min grid of sections 2-7 (AUROC / AUPRC; `evaluation/analysis/scripts/hackett_prep.py --step 0`; archive `evaluation/analysis/results/real_time_points_results.tgz`):
 
 | | real time points | 15 min grid (interpolated) |
 |---|---|---|

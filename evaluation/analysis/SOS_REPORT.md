@@ -4,7 +4,7 @@ HFODE, `-g 500` unless stated, 5 runs per setting, 64 pairs (8 true: LexA = G2 -
 including the diagonal (`input/SOS/SOS_all_unknown_knowledge.txt`), `-t 4`. Values are mean AUROC / AUPRC over the runs (random 0.5 / 0.125);
 `conf` = CONFIDENCE_LEVEL, `vote` = VOTE_SCORE. The sd of the AUROC over runs is 0.01-0.07, so differences below about 0.05 are noise.
 Gold standard: no sign is stored, so a true edge with the wrong sign still counts as TP.
-The final_results.txt of all runs are in `experiments/results/sos_results.tgz` (see `experiments/results/README.md`).
+The final_results.txt of all runs are in `evaluation/analysis/results/sos_results.tgz` (see `evaluation/analysis/results/README.md`).
 
 ## 1. Real data, 4 experiments as replicates (T1)
 
@@ -21,11 +21,11 @@ vote 0.751 / 0.317; `-f 3` conf 0.544 / 0.143, vote 0.670 / 0.243.
 - `-f 1` is clearly better than `-f 3` (about 0.1-0.17 AUROC); on IRMA the two are within noise, so `-f 1` is the safer default. No rule that picks
   `-f` without looking at the gold standard was found: the noise level of the data (second-difference estimate / range: IRMA 0.11-0.12, SOS 0.08) does not explain it.
 - 500 -> 1000 generations changes nothing beyond noise; the fitness gain from generation 0.5g to 0.9g has median about 1% (90th percentile 3-5%)
-  (`experiments/scripts/convergence.py`, now for any `-g`).
+  (`evaluation/analysis/scripts/convergence.py`, now for any `-g`).
 - Per iteration (`-f 1`): the first iteration decides about 85% of the pairs; FP are already there after it.
 - Signs: of the 30 true edges found with `-f 1` only 6 are `-` (5 x LexA -> LexA, 1 x LexA -> G1), the rest are `+` although LexA is a repressor
   (`-f 3`: all `+`, and LexA -> LexA is never found). A sign-aware TP would be about 1.2 per run instead of 6.0.
-- Combining conf and vote (mean or mean rank, `experiments/scripts/combine_scores.py`, rules fixed beforehand) gives about the same AUROC as the better of the two
+- Combining conf and vote (mean or mean rank, `evaluation/analysis/scripts/combine_scores.py`, rules fixed beforehand) gives about the same AUROC as the better of the two
   (0.748 / 0.337 for `-f 1`) and a smaller sd, but no gain.
 
 ## 2. Why the signs are wrong
@@ -37,7 +37,7 @@ negative (about -0.4 to -0.7).
 - Fixing LexA -> LexA to `-` in the knowledge file (`-f 1`, 5 runs; a diagnostic that uses prior knowledge, not a setting): TP 4.8 / FP 21.0,
   vote 0.749 / 0.357, conf 0.645 / 0.197. The downstream edges stay `+`. So a missing self-repression term is not the cause.
 
-## 3. Simulated SOS, hidden LexA protein (`experiments/scripts/sim_sos.py`, `sim_sos_p.py`)
+## 3. Simulated SOS, hidden LexA protein (`evaluation/analysis/scripts/sim_sos.py`, `sim_sos_p.py`)
 
 Hill repression of 8 promoters by a hidden LexA protein P (P represses its own promoter too), UV cleaves P (doses 5, 5, 20, 20), 4 replicates, 50 points every
 6 min, 3% noise, scaled to [0.01, 1] like the real data. The output is the promoter activity, as in the real data. Seeds 1-5, `-f 1`, default settings.

@@ -3,9 +3,9 @@
 HFODE, after PR #18, IRMA switch-on (16 time points) and switch-off (21), one replicate each, `-t 5`, `IRMA_no_prior_knowledge.txt`.
 20 non-self directed pairs, 8 true (random AUROC 0.5, AUPRC 0.4). Values are mean AUROC / AUPRC over the runs; `conf` = CONFIDENCE_LEVEL,
 `vote` = VOTE_SCORE. The sd of the AUROC over runs is 0.00-0.09, so differences below about 0.05 are noise.
-Baseline = `irma_fixed` of `experiments/results/final_results.tgz` (`-g 500`, 10 runs per setting).
-The final_results.txt of all runs (and the step-1 progress files of the T3 runs) are in `experiments/results/irma_t2_t3_results.tgz`
-(see `experiments/results/README.md`).
+Baseline = `irma_fixed` of `evaluation/analysis/results/final_results.tgz` (`-g 500`, 10 runs per setting).
+The final_results.txt of all runs (and the step-1 progress files of the T3 runs) are in `evaluation/analysis/results/irma_t2_t3_results.tgz`
+(see `evaluation/analysis/results/README.md`).
 
 ## T2. Built-in perturbation sets (`-perturb 9 -noise N`, `-g 500`, 5 runs per setting)
 
@@ -56,7 +56,7 @@ TP / FP of the voted network are about the same for all `-g` (4.0 / 1.0-1.8 for 
 - The conf results are stable between 500 and 2000 generations (all differences within 0.05); several settings give the same network in all 10 runs
   (conf sd 0.000). The switch-off vote rises with `-g` by 0.05-0.06 (`-f 1` 0.605 -> 0.657, `-f 3` 0.609 -> 0.671), at the border of the noise, and vote is the worse output on switch-off.
 
-Convergence of the GA (`experiments/scripts/convergence.py`, step-1 progress files, 5 genes x 30 GA runs x 10 runs): relative fitness gain
+Convergence of the GA (`evaluation/analysis/scripts/convergence.py`, step-1 progress files, 5 genes x 30 GA runs x 10 runs): relative fitness gain
 from generation 0.5g to 0.9g, median / 90th percentile:
 
 | | `-g 500` | `-g 1000` | `-g 2000` |
@@ -68,7 +68,7 @@ from generation 0.5g to 0.9g, median / 90th percentile:
 
 - The fitness gain in the second half of the run is small (median below 2%); switch-on with `-f 1` converges slowest, but its network does not change.
 - The share of GA runs that still improved in the last 0.2g generations is 84-91% for `-g 500` and 99-100% for 1000 / 2000: it depends on the window and says little; the gain is the better measure.
-- 500 generations are enough on IRMA. The same check on SOS (`-g 500` / `-g 1000`) is in `experiments/SOS_REPORT.md`.
+- 500 generations are enough on IRMA. The same check on SOS (`-g 500` / `-g 1000`) is in `evaluation/analysis/SOS_REPORT.md`.
 
 ## Correction to the hand-off text
 

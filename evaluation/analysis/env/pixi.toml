@@ -1,0 +1,19 @@
+[workspace]
+authors = ["mingjutsai <mingjutsai49@gmail.com>"]
+channels = ["conda-forge"]
+name = "dyngenie_pixi"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = "3.11.*"
+numpy = ">=2.4.6,<3"
+scikit-learn = ">=1.9.1,<2"
+scipy = ">=1.17.1,<2"
+pandas = ">=3.1.1,<4"
+
+[pypi-dependencies]
+pyhsiclasso = ">=1.4.2, <2"
+pypdf = ">=7.1.1, <8"

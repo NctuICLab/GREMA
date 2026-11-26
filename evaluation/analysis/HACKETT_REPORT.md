@@ -1,7 +1,7 @@
 # TF-induction time courses of Hackett et al. (2020) with the gold standard of Ma et al. (2014)
 
 A test of GREMA (HFODE, `-f 1`, `-g 500`) on time courses of a larger system with a gold standard of direct regulations.
-The final_results.txt of all runs and the input files are in `experiments/results/hackett_results.tgz` (see `experiments/results/README.md`).
+The final_results.txt of all runs and the input files are in `evaluation/analysis/results/hackett_results.tgz` (see `evaluation/analysis/results/README.md`).
 
 ## Data
 
@@ -14,7 +14,7 @@ The final_results.txt of all runs and the input files are in `experiments/result
   The files were taken from the journal site (the PMC copy is behind a reCAPTCHA page).
 - No sign is stored in the gold standard; signs are not evaluated.
 
-## Design (rules fixed before any GREMA run; `experiments/scripts/hackett_prep.py`)
+## Design (rules fixed before any GREMA run; `evaluation/analysis/scripts/hackett_prep.py`)
 
 - TFs: the induced TFs that are regulators in the gold standard, with the most responding genes (max |value| over time > 1): SFP1, GLN3, STE12, YOX1, PHO4, MOT3, YAP1, SUM1, ACE2, RLM1
   (`hackett_explore.py` lists the 49 candidates).
@@ -86,9 +86,9 @@ is searched as a random subset of `round(candidates / GREMA_SLOT_DIV)` slots (th
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE142nnn/GSE142864/matrix/GSE142864-GPL16244_series_matrix.txt.gz   # save as GPL16244.txt.gz
 curl -o GPL16244_annot.txt "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GPL16244&targ=self&form=text&view=full"
 curl -o gold.xlsx "https://journals.plos.org/plosone/article/file?type=supplementary&id=10.1371/journal.pone.0106479.s020"
-python3 -I experiments/scripts/hackett_prep.py DATA_DIR gold.xlsx OUT --per-tf 10 --network 3 --step 15
-GREMA_ROOT=$PWD GREMA_SLOT_DIV=5 experiments/scripts/run_one.sh RUNDIR OUT/expression.txt OUT/knowledge.txt -g 500 -f 1 -t 3
-python3 experiments/scripts/eval_runs.py --gold OUT/gold.tsv "label=RUNDIR*/out/final_results.txt"
+python3 -I evaluation/analysis/scripts/hackett_prep.py DATA_DIR gold.xlsx OUT --per-tf 10 --network 3 --step 15
+GREMA_ROOT=$PWD GREMA_SLOT_DIV=5 evaluation/analysis/scripts/run_one.sh RUNDIR OUT/expression.txt OUT/knowledge.txt -g 500 -f 1 -t 3
+python3 evaluation/analysis/scripts/eval_runs.py --gold OUT/gold.tsv "label=RUNDIR*/out/final_results.txt"
 ```
 
 ## Limits

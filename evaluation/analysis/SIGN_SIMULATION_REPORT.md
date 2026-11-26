@@ -1,10 +1,10 @@
 # Signs and detection of GREMA on simulated signed networks, with the model correct and misspecified
 
 Question: the signs of the regulations found on real data were unreliable (SOS: every edge `+` although LexA is a repressor; Hackett second TF subset: 6 `+` and 15 `-` among the found true edges). Is the sign mechanism of GREMA
-(the sign of the Hill coefficient n, `+` for activation) itself reliable? Archive of the inputs and results: `experiments/results/sign_simulation_results.tgz`
-(`python3 experiments/scripts/eval_sim_variants.py <unpacked archive>` gives the table).
+(the sign of the Hill coefficient n, `+` for activation) itself reliable? Archive of the inputs and results: `evaluation/analysis/results/sign_simulation_results.tgz`
+(`python3 evaluation/analysis/scripts/eval_sim_variants.py <unpacked archive>` gives the table).
 
-## Simulation (`experiments/scripts/sim_signed_net.py`; rules fixed before any run)
+## Simulation (`evaluation/analysis/scripts/sim_signed_net.py`; rules fixed before any run)
 
 - Network: 10 genes, every gene has 1 or 2 regulators drawn from the other genes, every edge `+` or `-` with probability 1/2 (14-18 edges per network; over the 5 networks 34 of 80 edges activate, so "all +" would be right in 43%, random 50%).
 - Dynamics in the form of the solver (Euler, step 1): `dx_i/dt = TransMax_i * prod_j 1/(1 + (k_ij/x_j)^(s_ij n_ij)) + b_i - degrade_i x_i`, `s_ij` = the sign, n in U(2, 4), k in U(0.2, 0.6), TransMax in U(0.6, 1.0), b in U(0, 0.05), degrade in U(0.2, 0.5).
