@@ -100,3 +100,9 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `net1-5/` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `signs.tsv`; made with `sim_signed_net.py <dir> <seed>`), `runs/net<k>_r<1,2>/final_results.txt` (GREMA, default settings, `-f 1`, `-g 500`),
 `var_<noise10|noise20|points8|points5|series1|additive|hidden2>/net1-5` and `var_*/runs/net<k>_r1` (the misspecified variants, 1 run per network), `dyn/<RF|ET>_net<k>/seed0-4/final_results.txt` (dynGENIE3 on the baseline networks).
 `python3 experiments/scripts/eval_sim_variants.py <the unpacked archive>` prints the table of the report.
+
+## `sim_protein_results.tgz` (protein regulators, promoter activity measured, shared driver, filtered regulator; see `experiments/PROTEIN_REGULATOR_REPORT.md`)
+
+`net1-5/` (no driver), `drv_transcription/net1-5`, `drv_cleavage/net1-5` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `signs.tsv`, `decay.tsv`; `sim_protein_net.py <dir> <seed> [--driver transcription|cleavage]`),
+`aug_d0.1|0.2|0.3/net1-5` (data with the filtered copies of the genes and the knowledge file in which only they may regulate; `augment_filtered.py`), `runs/base_net<k>` and `runs/d<D>_net<k>` (GREMA without a driver; the latter on the `aug_d<D>` data),
+`drv_*/runs/net<k>` (GREMA with a driver), `dyn/<none|transcription|cleavage>_<RF|ET>_net<k>/seed0-4` (dynGENIE3). `python3 experiments/scripts/eval_protein_sims.py <the unpacked archive>` prints the tables of the report.
