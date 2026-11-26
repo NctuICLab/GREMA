@@ -12,7 +12,7 @@ evaluation/
     *_REPORT.md, HANDOFF.md     the reports (table below)
     scripts/                    scripts of the analyses (table below)
     results/                    archived results (*.tgz) and results/README.md (what is in each archive)
-  analysis_runs/                run directories, downloaded data, logs (not in git; see below)
+  analysis/env/                 pixi.toml and pixi.lock of the Python environment of the analyses
 ```
 
 ## Reports
@@ -49,14 +49,15 @@ evaluation/
 
 Python scripts need numpy, scipy and scikit-learn; `hsic_prefilter.py` also pyHSICLasso; `dyngenie3_runner.py` needs the dynGENIE3 code and was run in a pixi environment (see `METHODS_REPORT.md`).
 
-## Run directories, downloaded data and logs (`evaluation/analysis_runs/`, not in git)
+## Run directories, downloaded data and logs (`GREMA_analysis_runs/`, outside the repository)
 
-The full outputs of the runs, the simulated and the downloaded data and the logs of the analyses are in `evaluation/analysis_runs/` (listed in `.gitignore`; about 1.7 GB, on the machine where the analyses were run; the archives in `results/` are the part that is versioned).
+On the machine where the analyses were run they are in `/mnt/10T-backup-mingju/GREMA_analysis_runs/` (1.7 GB; `external/`, `runs/`, `logs/`), next to the repository, so that `git clean` or `git add -A` cannot touch them.
+The versioned part is `results/*.tgz` (the result files and the inputs needed to score them); the full run directories hold in addition the per-iteration results and the intermediate files.
 
 | Folder | Content | Report |
 |---|---|---|
 | `external/hackett_data`, `external/hackett_gold` | the processed expression matrices of GEO GSE142864 and the platform table; the gold standard of Ma et al. (2014) | `HACKETT_REPORT.md` |
-| `external/dyngenie_src`, `external/dyngenie_pixi` | the dynGENIE3 code (downloaded, read before use) and the pixi environment of the Python packages (numpy, scikit-learn, scipy, pandas, pyHSICLasso, pypdf) | `METHODS_REPORT.md` |
+| `external/dyngenie_src`, `external/dyngenie_pixi` | the dynGENIE3 code (downloaded, read before use) and the pixi environment (`env/pixi.toml`, `env/pixi.lock`) | `METHODS_REPORT.md` |
 | `external/irma_ref` | the paper that was used for the signs of IRMA | `SIGNS_REAL_DATA_REPORT.md` |
 | `runs/hackett_runs`, `runs/set2`, `runs/rawtime_runs`, `runs/time_test` | the Hackett designs (first and second TF subset, small networks, the measured time points) and the GREMA runs on them; the tests of `-time` | `HACKETT_REPORT.md`, `METHODS_REPORT.md` sections 7 and 8 |
 | `runs/irma_slots`, `runs/ssystem_slots`, `runs/ssystem_runs`, `runs/ss_orient` | HFODE and S-system on IRMA with 1 / 2 / 4 regulator slots, the first S-system batch, the test of the direction of the S-system output | `SSYSTEM_SLOTS_REPORT.md` |
@@ -66,7 +67,23 @@ The full outputs of the runs, the simulated and the downloaded data and the logs
 | `runs/sim_signed`, `runs/sim_protein`, `runs/sim_irma_signs`, `runs/sim_irma_like` | the simulated signed networks and their variants, the protein regulators with a shared driver, the IRMA-topology and the IRMA-like simulations | `SIGN_SIMULATION_REPORT.md`, `PROTEIN_REGULATOR_REPORT.md`, `SIGNS_REAL_DATA_REPORT.md` |
 | `logs/` | the launcher logs (`*.out`) | |
 
-The first runs (SOS with 4 experiments, the IRMA baseline of `final_results.tgz`) were made in the home directory of the machine (`~/grema_runs/`) and are not in this folder. The pixi environment is rebuilt with `pixi install` in `external/dyngenie_pixi` if it is moved again.
+The first runs (SOS with 4 experiments, the IRMA baseline of `final_results.tgz`) were made in `~/grema_runs/` and are not in this folder.
+
+### Backup at the end of a stage, and restoring on another machine
+
+```shell
+bash evaluation/analysis/scripts/backup_runs.sh stage1      # one .tar.zst per folder + MANIFEST.tsv + SHA256SUMS
+```
+
+writes to `GREMA_analysis_backups/<stage>/` next to `GREMA_analysis_runs/` (the pixi environment folder `.pixi` is left out). The folder can be kept as it is or uploaded (for example to Zenodo; check the licence of the data first, see below).
+To continue the analyses on another machine:
+
+1. clone the repository and build the solvers (README);
+2. `mkdir GREMA_analysis_runs && cd GREMA_analysis_runs && mkdir external runs logs`, then for every archive `tar --zstd -xf <name>.tar.zst -C <external|runs|logs>` (check with `sha256sum -c SHA256SUMS` first);
+3. rebuild the Python environment: `cd GREMA_analysis_runs/external/dyngenie_pixi && cp <repository>/evaluation/analysis/env/pixi.* . && pixi install`;
+4. without the backup: `results/*.tgz` score every reported result; the simulated data are made again by the scripts (`sim_*.py`, the seeds are in the reports), the Hackett data and the gold standard are downloaded again (commands in `HACKETT_REPORT.md`), only the runs have to be repeated.
+
+Data licences: the Hackett data (GEO) and the gold standard of Ma et al. are public; the SOS data are from the web page of Uri Alon's lab and the paper that was used for the IRMA signs is under the copyright of its publisher; do not put the downloaded copies (`external/`) into a public record without checking; the runs and simulations (`runs/`, `logs/`) are our own.
 
 ## Archived results (`results/`)
 
