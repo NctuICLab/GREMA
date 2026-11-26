@@ -1,9 +1,9 @@
 # Are the signs of GREMA right on real data? Why not? A data check before the run
 
-Three things: (1) the signs of the regulations found on the real IRMA data, for which the signs of 7 true regulations are known; (2) four checks of what could make them wrong; (3) `experiments/scripts/check_data.py`, a check of an input file for the properties that decide
+Three things: (1) the signs of the regulations found on the real IRMA data, for which the signs of 7 true regulations are known; (2) four checks of what could make them wrong; (3) `evaluation/analysis/scripts/check_data.py`, a check of an input file for the properties that decide
 whether a regulation can be inferred (used in the README section "Is my data suitable?").
 
-## 1. Signs on IRMA (`experiments/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`)
+## 1. Signs on IRMA (`evaluation/analysis/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`)
 
 Signs of the true regulations (5 genes: G1 CBF1, G2 GAL4, G3 SWI5, G4 GAL80, G5 ASH1), from the model of the IRMA network of Cantone et al. (2009) in
 the arXiv paper [1005.2107](https://arxiv.org/pdf/1005.2107) ("Efficient parameter search for qualitative models of regulatory networks using symbolic model checking"; its figure 1 and equations; the source is a description of the network, not the figure of the original paper):
@@ -17,7 +17,7 @@ the arXiv paper [1005.2107](https://arxiv.org/pdf/1005.2107) ("Efficient paramet
 
 The 8th regulation of the gold standard, GAL4 -> GAL80, is not in that model; its sign is not used. So 7 signed edges, 5 activating: "every edge `+`" is right for 71% of them, random 50%.
 
-GREMA (HFODE, `-f 1` / `-f 3`, `-g 500`, 10 runs per setting; `final_results.tgz` and `ssystem_slots_results.tgz` of `experiments/results/`):
+GREMA (HFODE, `-f 1` / `-f 3`, `-g 500`, 10 runs per setting; `final_results.tgz` and `ssystem_slots_results.tgz` of `evaluation/analysis/results/`):
 
 | Setting | signed true edges called a regulation | of those, sign right |
 |---|---|---|
@@ -36,9 +36,9 @@ The sign of an edge is almost the same in all 10 runs of a setting (an edge is 1
 - Consequence: the signs of GREMA are an advantage over the fast methods (which give no signs) in simulations only, not on real data.
 - Limits: 7 edges, the signs come from a secondary description, 4 independent called edges per setting.
 
-## 2. Why are the signs wrong? Four checks (archive `experiments/results/irma_sign_factors_results.tgz`)
+## 2. Why are the signs wrong? Four checks (archive `evaluation/analysis/results/irma_sign_factors_results.tgz`)
 
-**2a. The model is right, the topology and the amount of data are those of IRMA.** Data simulated with HFODE itself on the IRMA topology (`experiments/scripts/sim_gen.py <seed> <replicates> 0.05`: 8 edges with signs, 6 activating, 5 genes, 16 points, 5% noise, random initial values, 10 random parameter sets),
+**2a. The model is right, the topology and the amount of data are those of IRMA.** Data simulated with HFODE itself on the IRMA topology (`evaluation/analysis/scripts/sim_gen.py <seed> <replicates> 0.05`: 8 edges with signs, 6 activating, 5 genes, 16 points, 5% noise, random initial values, 10 random parameter sets),
 GREMA with the default settings (1 slot, `-f 1`, `-g 500`):
 
 | Data | signed true edges called | sign right | vote AUROC (per run) |
@@ -49,7 +49,7 @@ GREMA with the default settings (1 slot, `-f 1`, `-g 500`):
 
 With the same topology and one series the signs are right (95%) when the data follow the model: the wrong signs on the real data are not caused by the amount of data or by the feedback loops of the topology.
 
-**2b. An IRMA-like simulation with three switches** (`experiments/scripts/sim_irma_like.py`, `eval_irma_like.py`; the 5 genes and 7 signed regulations of IRMA, the mRNA is measured, 3 series of 20 points, 5% noise, 10 random parameter sets per condition, 8 conditions, GREMA default settings, 80 runs).
+**2b. An IRMA-like simulation with three switches** (`evaluation/analysis/scripts/sim_irma_like.py`, `eval_irma_like.py`; the 5 genes and 7 signed regulations of IRMA, the mRNA is measured, 3 series of 20 points, 5% noise, 10 random parameter sets per condition, 8 conditions, GREMA default settings, 80 runs).
 The switches: **protein stage** (the regulators act through a protein that follows the mRNA with a delay, rate 0.1-0.3), **external input** (a shift at step 5 that opens the regulation GAL4 -> SWI5: factor 0.2 + 0.8 u(t)), **post-translational inhibition** (GAL80 lowers the activity of the Gal4 protein instead of repressing the transcription of GAL4).
 All the regulation functions are of the Hill type.
 
@@ -67,14 +67,14 @@ All the regulation functions are of the Hill type.
 The protein stage lowers the detection (AUROC 0.81 -> 0.62 on average, and fewer edges are called), the other two switches much less (input: 0.72 vs 0.71; post-translational inhibition: 0.69 vs 0.74). **None of them changes the sign** (265 of 265 called edges right).
 GAL80 -> GAL4 (a transcriptional repression; a protein-level inhibition when the third switch is on) is the only regulation whose sign changes with a switch: with the third switch off it is found in 16 of 40 runs and always right, with it on in 6 of 40 runs and right in 2 of them.
 
-**2c. A linear model on the real IRMA data** (`experiments/scripts/linear_signs_irma.py`; the change of a gene regressed on the other genes, ridge lambda 0.1 or one correlation at a time; the sign of the coefficient is the predicted sign): it gets the sign right for 2-3 of the 7 signed edges in switch-on and 3-4 in switch-off
+**2c. A linear model on the real IRMA data** (`evaluation/analysis/scripts/linear_signs_irma.py`; the change of a gene regressed on the other genes, ridge lambda 0.1 or one correlation at a time; the sign of the coefficient is the predicted sign): it gets the sign right for 2-3 of the 7 signed edges in switch-on and 3-4 in switch-off
 (random 3.5, "every edge `+`" 5). **A model that has no Hill function is as wrong as GREMA on this data.** (The wrong edges are mostly the same: CBF1 -> GAL4, ASH1 -> CBF1, SWI5 -> CBF1.)
 
 **2d. What this says about the Hill function.** The simulations of the sections 2a and 2b cannot show that the Hill function describes real regulation, because they were generated with Hill-type regulation functions; they show that GREMA recovers the signs when the regulation is of that type, also with a delay, an input and a protein-level inhibition.
 The linear model on the real data shows that the wrong signs are **not specific to the Hill function**: a linear model is as wrong, which points to the data (confounding by a common regulator, e.g. SWI5 activates both ASH1 and CBF1, so ASH1 and CBF1 rise together although ASH1 represses CBF1; a few edges of one network; mRNA data for regulations that are partly at the protein level) rather than to the form of the model.
 This confounding was not tested directly: in the simulations of 2a and 2b with the same topology the signs were right. **Not tested: regulation functions that are not Hill-type (non-monotone, a dual effect of the same regulator).**
 
-## 3. A check of the data (`experiments/scripts/check_data.py`)
+## 3. A check of the data (`evaluation/analysis/scripts/check_data.py`)
 
 Prints the size of the data (series, points, samples = series x (points - 1)), the mean |correlation| between the genes and the **series similarity** (mean correlation of the same gene between two different series), and warns (rules of thumb, not tests):
 fewer than 3 series, fewer than 8 points, fewer than 30 samples, mean |correlation| >= 0.55, series similarity >= 0.5.

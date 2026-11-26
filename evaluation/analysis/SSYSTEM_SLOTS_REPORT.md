@@ -1,6 +1,6 @@
 # Regulator slots on IRMA (HFODE and S-system) and the direction of the S-system output
 
-Archive: `experiments/results/ssystem_slots_results.tgz` (see `experiments/results/README.md`). IRMA, switch-on (16 points) and switch-off (21), one replicate each,
+Archive: `evaluation/analysis/results/ssystem_slots_results.tgz` (see `evaluation/analysis/results/README.md`). IRMA, switch-on (16 points) and switch-off (21), one replicate each,
 `IRMA_no_prior_knowledge.txt` (diagonal `0`, so 4 candidate regulators per gene), `-f 1`, `-g 500`, `-t 5`, 10 runs per setting; AUROC / AUPRC averaged over the runs
 (random 0.5 / 0.4), gold standard `input/IRMA/IRMA_GoldStandard.tsv` (8 edges); differences below about 0.05 AUROC are noise.
 
@@ -56,7 +56,7 @@ AUROC / AUPRC, conf = CONFIDENCE_LEVEL, vote = VOTE_SCORE; TP / FP of the voted 
 ## 3. Is the direction of the S-system output reversed? (it is not)
 
 On IRMA the S-system AUROC was below 0.5, and with the gold standard transposed (TF and GENE swapped) it was above 0.5 (switch-on, 1 slot: conf 0.716, vote 0.793; HFODE with the transposed gold: 0.40 / 0.36).
-That pattern looked like a reversed output, so a test with a known truth was made: simulated data with the IRMA topology (`experiments/scripts/sim_gen.py`, 3 replicates, noise 0.02, seeds 1-5, HFODE-generated; archive `orient/`), HFODE and S-system, `-f 1`, `-g 500`:
+That pattern looked like a reversed output, so a test with a known truth was made: simulated data with the IRMA topology (`evaluation/analysis/scripts/sim_gen.py`, 3 replicates, noise 0.02, seeds 1-5, HFODE-generated; archive `orient/`), HFODE and S-system, `-f 1`, `-g 500`:
 
 | | gold as is (conf / vote) | gold transposed (conf / vote) |
 |---|---|---|
@@ -70,5 +70,5 @@ The below-random AUROC on the real IRMA data is therefore a property of the mode
 ## Limits
 
 - One data set (IRMA), `-f 1` only, 10 runs per setting (the orientation test: 5 seeds); the S-system `-f 3` runs of the first batch (20 runs) were made but not evaluated and are not in the archive.
-- 8 true edges. The slot comparison on SOS and the Hackett network (HFODE only) is in `experiments/SOS_REPORT.md` and `experiments/HACKETT_REPORT.md`.
+- 8 true edges. The slot comparison on SOS and the Hackett network (HFODE only) is in `evaluation/analysis/SOS_REPORT.md` and `evaluation/analysis/HACKETT_REPORT.md`.
 - S-system was run with the settings of this repository (`h_ij` fixed to 0); other settings were not tried.

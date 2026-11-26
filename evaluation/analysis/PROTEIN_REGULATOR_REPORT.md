@@ -1,8 +1,8 @@
 # When the measured variable is not the regulator: promoter activity, protein regulators, a shared driver (why SOS fails)
 
 Question: on the SOS data the signs found by GREMA are wrong (every found LexA edge is `+`, LexA is a repressor) and the detection is weak, while dynGENIE3 scores higher. What does that depend on? Simulated networks with known edges and signs
-(`experiments/scripts/sim_protein_net.py`; archive `experiments/results/sim_protein_results.tgz`; `python3 experiments/scripts/eval_protein_sims.py <unpacked archive>` prints the tables). Earlier: signs of GREMA are reliable when the
-measured variable is the regulator (`experiments/SIGN_SIMULATION_REPORT.md`); a single-hub simulation with a hidden LexA protein reproduced the wrong signs of SOS (`experiments/SOS_REPORT.md`).
+(`evaluation/analysis/scripts/sim_protein_net.py`; archive `evaluation/analysis/results/sim_protein_results.tgz`; `python3 evaluation/analysis/scripts/eval_protein_sims.py <unpacked archive>` prints the tables). Earlier: signs of GREMA are reliable when the
+measured variable is the regulator (`evaluation/analysis/SIGN_SIMULATION_REPORT.md`); a single-hub simulation with a hidden LexA protein reproduced the wrong signs of SOS (`evaluation/analysis/SOS_REPORT.md`).
 
 ## Simulation (rules fixed before the runs)
 

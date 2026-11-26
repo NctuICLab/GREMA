@@ -2,11 +2,11 @@
 
 `final_results.tgz` holds the `final_results.txt` of every finished run (columns `TF GENE REGULATORY
 CONFIDENCE_LEVEL VOTE_SCORE`), nothing else (the full run directories are 10-30 MB each). Evaluate with
-`experiments/scripts/eval_runs.py`, e.g.
+`evaluation/analysis/scripts/eval_runs.py`, e.g.
 
 ```shell
-mkdir -p /tmp/res && tar xzf experiments/results/final_results.tgz -C /tmp/res
-python3 experiments/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv \
+mkdir -p /tmp/res && tar xzf evaluation/analysis/results/final_results.tgz -C /tmp/res
+python3 evaluation/analysis/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv \
     "f3-on=/tmp/res/irma_fixed/f3_on_r*/final_results.txt" "f1-on=/tmp/res/irma_fixed/f1_on_r*/final_results.txt"
 ```
 
@@ -22,10 +22,10 @@ python3 experiments/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv
 | `sos_4exp_diagU` | SOS, 4 experiments as 4 replicates, diagonal = `?`, **unfinished** | 3 |
 
 `irma_gp_inputs.tgz` holds the sampled GP trajectories that were used as inputs (`auto/seed<S>/<on|off>/in_<M>.txt`,
-`lat/...`); they were made with `experiments/scripts/gp_auto.py` and `gp_v2.py` (seeds 0-4, 10 trajectories each).
+`lat/...`); they were made with `evaluation/analysis/scripts/gp_auto.py` and `gp_v2.py` (seeds 0-4, 10 trajectories each).
 Use the same input files if you want to re-run with different options.
 
-## `sos_results.tgz` (SOS follow-up analyses, see `experiments/SOS_REPORT.md`)
+## `sos_results.tgz` (SOS follow-up analyses, see `evaluation/analysis/SOS_REPORT.md`)
 
 `final_results.txt` of every run, one directory per setting, `<setting>/<run>/final_results.txt`; all runs finished.
 
@@ -38,7 +38,7 @@ Use the same input files if you want to re-run with different options.
 | `sim_sos` | simulated SOS data, hidden LexA protein (`sim<seed>.txt` made by `sim_sos.py <seed>`), `-f 1`, runs `f1_s1-5`, evaluate with the SOS gold standard | 5 |
 | `sim_sos_p` | same simulation with the protein measured as G9 (`sim_sos_p.py`), 9 x 9 knowledge `know9.txt`, gold `gold9.tsv` (G9 -> G1..G8), runs `f1_s1-5`, `f3_s1-5` | 10 |
 
-## `irma_t2_t3_results.tgz` (IRMA perturbation sets and number of generations, see `experiments/IRMA_REPORT.md`)
+## `irma_t2_t3_results.tgz` (IRMA perturbation sets and number of generations, see `evaluation/analysis/IRMA_REPORT.md`)
 
 `<setting>/<run>/final_results.txt`; for `gen` and `gen500` also `tmp/progress*_step1.txt` (input of `convergence.py`). All runs finished.
 
@@ -48,7 +48,7 @@ Use the same input files if you want to re-run with different options.
 | `gen` | `g<G>_f<fitness>_<on|off>_r<rep>`, `-g 1000` and `-g 2000`, `-f 1` / `-f 3`, on / off, r1-r10 | 80 |
 | `gen500` | the same with `-g 500` (rerun, to have the progress files) | 40 |
 
-## `hackett_results.tgz` (TF-induction time courses of Hackett et al. 2020, see `experiments/HACKETT_REPORT.md`)
+## `hackett_results.tgz` (TF-induction time courses of Hackett et al. 2020, see `evaluation/analysis/HACKETT_REPORT.md`)
 
 Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `names.tsv` G<i> -> ORF / symbol / TF, `summary.txt`) and `final_results.txt` of every run; all runs finished. Evaluate with `--gold <design>/gold.tsv`.
 
@@ -58,7 +58,7 @@ Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `nam
 | `small15` | the same on the 15 min grid (7 points) | 3 + 3 |
 | `net3_p10_s15` | 10 TFs, 56 variables, 15 min grid, gold network 3 (18 edges): `runs` = 10 regulator slots per gene, `runs_slot3` = 3 slots (`GREMA_SLOT_DIV=3`), `runs_slot2` = 2 slots (`GREMA_SLOT_DIV=5`) | 3 + 3 + 3 |
 
-## `ssystem_slots_results.tgz` (regulator slots on IRMA and the direction of the S-system output, see `experiments/SSYSTEM_SLOTS_REPORT.md`)
+## `ssystem_slots_results.tgz` (regulator slots on IRMA and the direction of the S-system output, see `evaluation/analysis/SSYSTEM_SLOTS_REPORT.md`)
 
 `<setting>/<run>/final_results.txt`; all runs finished. Evaluate with `input/IRMA/IRMA_GoldStandard.tsv`.
 
@@ -69,7 +69,7 @@ Inputs of the three designs (`expression.txt`, `knowledge.txt`, `gold.tsv`, `nam
 | `ssystem_old` | S-system with the old rule `round(N/3)` (2 slots on IRMA), `-f 1`, `ss_f1_<on|off>_r<rep>` | 20 |
 | `orient` | simulated data with the IRMA topology (`sim<seed>.txt` from `sim_gen.py <seed> 3 0.02`), `hfode_s<seed>`, `ssystem_s<seed>` (old rule), `-f 1`; evaluate with the IRMA gold standard | 10 |
 
-## `methods_comparison_results.tgz` (dynGENIE3, edge scores, filters before GREMA; see `experiments/METHODS_REPORT.md`)
+## `methods_comparison_results.tgz` (dynGENIE3, edge scores, filters before GREMA; see `evaluation/analysis/METHODS_REPORT.md`)
 
 Result files of the comparison, inputs of the controls; GREMA runs as `<setting>/<run>/final_results.txt` (the per-iteration `iga_results/` are not archived), dynGENIE3 as `<data>/seed<k>/final_results.txt`
 (same columns: the dynGENIE3 score is written in both score columns, REGULATORY is `+` for every pair). Evaluate with `eval_runs.py` (gold standards: `input/IRMA`, `input/SOS`, Hackett `gold.tsv` in `hackett_results.tgz`).
@@ -85,30 +85,30 @@ Result files of the comparison, inputs of the controls; GREMA runs as `<setting>
 | `prior_lasso`, `prior_hsic`, `prior_hill`, `prior_hill_perm` | prior scores, filtered knowledge files and summary of the three filters (`prior_hill_perm`: Hill dictionary on the permuted data) |
 | `lasso_grema_runs`, `hsic_grema_runs`, `hill_grema_runs` | GREMA on the filtered knowledge files |
 
-## `hackett_set2_results.tgz` (second TF subset of the Hackett data, see `experiments/METHODS_REPORT.md` section 7)
+## `hackett_set2_results.tgz` (second TF subset of the Hackett data, see `evaluation/analysis/METHODS_REPORT.md` section 7)
 
 The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `names.tsv`, `summary.txt`), `grema/` (`grema_2slots_r1-3`: 2 slots on the full candidate list; `grema_hill_r1-3`: on the Hill dictionary filtered knowledge file `hill/s0/knowledge_filtered.txt`),
 `dyngenie/RF`, `dyngenie/ET` (10 seeds), `hill/s0-2` (prior scores of the Hill dictionary), `perm/` (the permuted data sets `data_p<k>.txt` and the Hill dictionary / dynGENIE3 scores on them).
 
-## `real_time_points_results.tgz` (option `-time`, see `experiments/METHODS_REPORT.md` section 8)
+## `real_time_points_results.tgz` (option `-time`, see `evaluation/analysis/METHODS_REPORT.md` section 8)
 
 `inputs/set1`, `inputs/set2`: the two Hackett designs with the 8 measured time points (`hackett_prep.py ... --step 0`, `time_list.txt` = the argument of `-time`, `-tunit 5` was used); `rawtime_runs/set1_r1-3`, `set2_r1-3`: GREMA, 2 slots (`GREMA_SLOT_DIV=5`), `-f 1`, `-g 500`, `-time <time_list.txt> -tunit 5`;
 `equal_step_test/`: IRMA switch-on, 5 runs without and 5 runs with `-time 0,1,...,15` (the equal-step check).
 
-## `sign_simulation_results.tgz` (signs of GREMA on simulated signed networks, see `experiments/SIGN_SIMULATION_REPORT.md`)
+## `sign_simulation_results.tgz` (signs of GREMA on simulated signed networks, see `evaluation/analysis/SIGN_SIMULATION_REPORT.md`)
 
 `net1-5/` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `signs.tsv`; made with `sim_signed_net.py <dir> <seed>`), `runs/net<k>_r<1,2>/final_results.txt` (GREMA, default settings, `-f 1`, `-g 500`),
 `var_<noise10|noise20|points8|points5|series1|additive|hidden2>/net1-5` and `var_*/runs/net<k>_r1` (the misspecified variants, 1 run per network), `dyn/<RF|ET>_net<k>/seed0-4/final_results.txt` (dynGENIE3 on the baseline networks).
-`python3 experiments/scripts/eval_sim_variants.py <the unpacked archive>` prints the table of the report.
+`python3 evaluation/analysis/scripts/eval_sim_variants.py <the unpacked archive>` prints the table of the report.
 
-## `sim_protein_results.tgz` (protein regulators, promoter activity measured, shared driver, filtered regulator; see `experiments/PROTEIN_REGULATOR_REPORT.md`)
+## `sim_protein_results.tgz` (protein regulators, promoter activity measured, shared driver, filtered regulator; see `evaluation/analysis/PROTEIN_REGULATOR_REPORT.md`)
 
 `net1-5/` (no driver), `drv_transcription/net1-5`, `drv_cleavage/net1-5` (`expression.txt`, `knowledge.txt`, `gold.tsv`, `signs.tsv`, `decay.tsv`; `sim_protein_net.py <dir> <seed> [--driver transcription|cleavage]`),
 `aug_d0.1|0.2|0.3/net1-5` (data with the filtered copies of the genes and the knowledge file in which only they may regulate; `augment_filtered.py`), `runs/base_net<k>` and `runs/d<D>_net<k>` (GREMA without a driver; the latter on the `aug_d<D>` data),
-`drv_*/runs/net<k>` (GREMA with a driver), `dyn/<none|transcription|cleavage>_<RF|ET>_net<k>/seed0-4` (dynGENIE3). `python3 experiments/scripts/eval_protein_sims.py <the unpacked archive>` prints the tables of the report.
+`drv_*/runs/net<k>` (GREMA with a driver), `dyn/<none|transcription|cleavage>_<RF|ET>_net<k>/seed0-4` (dynGENIE3). `python3 evaluation/analysis/scripts/eval_protein_sims.py <the unpacked archive>` prints the tables of the report.
 
-## `irma_sign_factors_results.tgz` (why the signs on real IRMA are wrong, see `experiments/SIGNS_REAL_DATA_REPORT.md` section 2)
+## `irma_sign_factors_results.tgz` (why the signs on real IRMA are wrong, see `evaluation/analysis/SIGNS_REAL_DATA_REPORT.md` section 2)
 
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
-`python3 experiments/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+`python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.

@@ -12,7 +12,7 @@
 | `IRMA_switch_off_timeseries_expression.txt` | galactose -> glucose, 1 replicate, 21 time points |
 | `IRMA_no_prior_knowledge.txt` | knowledge file (all `?`, self-regulation `0`) |
 | `IRMA_GoldStandard.tsv`, `IRMA_GoldStandardUndirected.tsv` | gold standards for `evaluation/dream4_evaluate.py` |
-| `IRMA_signs.tsv` | the sign (+1 / -1) of the 7 true regulations whose sign is known from the model of the network (GAL4 -> GAL80 is not in it), for `experiments/scripts/eval_signs_real.py`; source in `experiments/SIGNS_REAL_DATA_REPORT.md` |
+| `IRMA_signs.tsv` | the sign (+1 / -1) of the 7 true regulations whose sign is known from the model of the network (GAL4 -> GAL80 is not in it), for `evaluation/analysis/scripts/eval_signs_real.py`; source in `evaluation/analysis/SIGNS_REAL_DATA_REPORT.md` |
 
 **Preprocessing** (`convert_irma.py`): both data sets are scaled with the same linear map to [0.01, 1] (GREMA cannot use 0). All time points are kept; the two experiments are separate inputs because they have different numbers of time points. GREMA treats the time points as unit time steps. According to the literature the sampling interval is constant within each experiment (about 20 min for switch-on and 10 min for switch-off; not verified against the original paper), and each experiment is analysed separately, so this only changes the time scale of the fitted rates.
 
@@ -50,7 +50,7 @@ Each run already performs the 30-run voting internally, so repeating the whole r
 
 ## Experiments on IRMA
 
-All numbers below are from HFODE with `-g 500` unless stated otherwise, evaluated against `IRMA_GoldStandard.tsv` (8 true edges among 25 possible directed edges; random AUROC 0.5, AUPRC 0.4). The main scripts (running, evaluation, GP augmentation, simulation) are in `experiments/scripts/`, the archived results of the runs and a description of what remains to be run are in `experiments/`. There are only 2 data sets and 8 true edges, so differences of about 0.05 in AUROC should not be over-interpreted.
+All numbers below are from HFODE with `-g 500` unless stated otherwise, evaluated against `IRMA_GoldStandard.tsv` (8 true edges among 25 possible directed edges; random AUROC 0.5, AUPRC 0.4). The main scripts (running, evaluation, GP augmentation, simulation) are in `evaluation/analysis/scripts/`, the archived results of the runs and a description of what remains to be run are in `evaluation/analysis/`. There are only 2 data sets and 8 true edges, so differences of about 0.05 in AUROC should not be over-interpreted.
 
 ### HFODE vs S-system
 

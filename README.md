@@ -105,13 +105,13 @@ Options:
 | `-f` | no | Fitness function (error between the observed and the simulated expression): `0` squared relative error, `1` squared error (default), `2` squared error of the derivative + squared relative error, `3` squared error of the derivative + squared error, `4` squared error of the derivative only. The derivative term is not computed at the last time point. On the IRMA data `3` was slightly better than the default, see [input/IRMA](input/IRMA/README.md). |
 | `-c` | no | `1` adds the correlation-coefficient term `1 - CC` to the fitness. Default `0`. |
 | `-min` | no | A parameter whose absolute value is not larger than this value is treated as "no regulation" when determining the regulations. Default `0`. |
-| `-nmax` | no | (HFODE only) Bound of the Hill coefficients, `-nmax <= n <= nmax`. Default `4`. On the Hackett data a bound of 8 gave the same ranking as 4 (the coefficients grow until they reach the bound), see [experiments/METHODS_REPORT.md](experiments/METHODS_REPORT.md). |
+| `-nmax` | no | (HFODE only) Bound of the Hill coefficients, `-nmax <= n <= nmax`. Default `4`. On the Hackett data a bound of 8 gave the same ranking as 4 (the coefficients grow until they reach the bound), see [evaluation/analysis/METHODS_REPORT.md](evaluation/analysis/METHODS_REPORT.md). |
 | `-time` | no | (HFODE only) The real sampling times of the time points, comma separated and strictly increasing, one value for every time point of the input, ex: `-time 0,5,10,15,20,30,45,90`. Without it the time points are equally spaced (step 1). With it the model is integrated over the real interval between two time points (explicit Euler steps of at most 1, the observed expression of the other genes interpolated linearly inside the interval) and the derivative term of `-f 2/3/4` uses the real interval. Use `-tunit` so that the typical interval is about 1 (the ranges of the parameters are made for steps of about 1). Not available for S-system. |
 | `-tunit` | no | The times of `-time` are divided by this value, default `1`; ex: `-time 0,5,10,15,20,30,45,90 -tunit 5` (the median interval of 5 minutes becomes 1). |
 | `-perturb` | no | (HFODE only) Number of extra time series that are made from the data and fitted together with it, default `0` (off). Extra series number `i` is a copy of replicate `(i mod number of replicates)` with Gaussian noise added to every value (see `-noise`); with 3 replicates and `-perturb 9` every replicate is copied 3 times. The extra series are used like additional experiments in the fitness, the observed data are not changed. Needs `-noise`. |
 | `-noise` | with `-perturb` | Standard deviation of that noise **relative to the value**: a value `x` becomes a draw from a normal distribution with mean `x` and standard deviation `noise * x` (`0.05` = 5%), drawn independently for every gene and time point (also the first one). Must be larger than 0 when `-perturb` is used and has no effect without it. |
 
-`-perturb` says *how many* extra series are made, `-noise` *how strong* the noise in them is. The noise of each point is independent, so the extra series carry no information about the network beyond the uncertainty of the data. On the IRMA data (10 settings, 70 runs) they did not improve the ranking of the regulations, see [experiments/IRMA_REPORT.md](experiments/IRMA_REPORT.md).
+`-perturb` says *how many* extra series are made, `-noise` *how strong* the noise in them is. The noise of each point is independent, so the extra series carry no information about the network beyond the uncertainty of the data. On the IRMA data (10 settings, 70 runs) they did not improve the ranking of the regulations, see [evaluation/analysis/IRMA_REPORT.md](evaluation/analysis/IRMA_REPORT.md).
 
 ### Regulator slots and `GREMA_SLOT_DIV`
 
@@ -138,7 +138,7 @@ GREMA_SLOT_DIV=5 perl GREMA_main.pl -i input.txt -k knowledge_tfs_only.txt -o ou
 | 8 | 4 | 3 | 2 | 2 |
 | 10 | 5 | 3 | 3 | 2 |
 
-What the experiments showed (details in [experiments/SOS_REPORT.md](experiments/SOS_REPORT.md) and [experiments/HACKETT_REPORT.md](experiments/HACKETT_REPORT.md)): with more slots more regulations are found, but most of the additional ones are false.
+What the experiments showed (details in [evaluation/analysis/SOS_REPORT.md](evaluation/analysis/SOS_REPORT.md) and [evaluation/analysis/HACKETT_REPORT.md](evaluation/analysis/HACKETT_REPORT.md)): with more slots more regulations are found, but most of the additional ones are false.
 SOS (8 candidates, 8 / 3 / 2 slots): FP 33.6 / 21.8 / 14.8 and TP 6.4 / 6.0 / 3.4, the default (3) had the best AUROC. 56 genes with 10 TFs as regulators (10 / 3 / 2 slots): FP 267 / 154 / 98, TP 13.7 / 10.3 / 9.0, vote AUROC 0.67 / 0.70 / 0.72.
 This was seen on few runs and two data sets; if the true regulation is sparse (a few regulators per gene) a smaller number of slots is worth trying, but there is no setting that is best everywhere.
 The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_SLOT_DIV` (only the production term `g_ij` has slots, the `h_ij` are fixed to 0). Before this version it always used `round(N/3)` slots, with `N` the number of genes, and could not be changed: on IRMA (4 candidates per gene) that was 2 slots, now it is 1 (`round(4/3)`).
@@ -150,25 +150,25 @@ The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_
 | Hill function-based ODE | `-m HFODE` (default) | `EMA_HFODE/EMA_HFODE` | Regulations are determined from the sign of the Hill coefficients `n_ij`. |
 | S-system | `-m s-system` | `EMA_SSYSTEM/EMA_ssystem` | Regulations are determined from the sign of the kinetic orders `g_ij`. The `h_ij` are fixed to 0 (the degradation term is a constant `beta`), and the number of regulators searched for each gene at the same time follows the rules of [Regulator slots](#regulator-slots-and-grema_slot_div). |
 
-## Is my data suitable? (`experiments/scripts/check_data.py`)
+## Is my data suitable? (`evaluation/analysis/scripts/check_data.py`)
 
 Whether a regulation can be inferred depends more on the data than on the method. Before a run:
 
 ```shell
-python3 experiments/scripts/check_data.py input.txt
+python3 evaluation/analysis/scripts/check_data.py input.txt
 ```
 
 prints the size of the data and warns when: there are fewer than 3 series, fewer than 8 time points, or fewer than 30 samples (series x (points - 1)); the genes are strongly correlated (mean |correlation| >= 0.55, a shared driver);
 or the series have the same time course (mean correlation of the same gene between two series >= 0.5: all experiments are one stimulus, as in the SOS data). The thresholds are rules of thumb from the data sets of this repository, not tests.
 
-What the analyses of this repository (reports in [experiments/](experiments)) found:
+What the analyses of this repository (reports in [evaluation/analysis/](evaluation/analysis/README.md)) found:
 - Data with **different perturbations** (a different TF induced in every experiment, as in the Hackett data) are the ones on which the scores of GREMA and dynGENIE3 come from the regulation. When all series are the same time course (SOS), the scores of both methods do **not** change when the genes of the experiments are shuffled
-  (`experiments/scripts/permute_replicates.py`: every gene takes its series from a random experiment; run the method on the shuffled data and compare): they come from the shared time course, so a high score there says little. Do this control on new data.
+  (`evaluation/analysis/scripts/permute_replicates.py`: every gene takes its series from a random experiment; run the method on the shuffled data and compare): they come from the shared time course, so a high score there says little. Do this control on new data.
 - The number of series matters most for the detection (simulations: AUROC 0.91 with 4 series, 0.82 with 1); few candidate regulators per gene (see [Regulator slots](#regulator-slots-and-grema_slot_div)) give fewer false regulations.
 - The measured variable should be the activity of the regulator. If it is a promoter activity or if the regulator is changed after the translation (SOS: LexA is cleaved, its promoter activity rises while the protein falls), the signs can be wrong and the detection is weak.
 - **Check the signs.** On simulated networks the signs found were right in 92-100% when the model is right, but on the real IRMA data (7 regulations with a known sign) only 25-50% of the signs of the found true regulations were right (the baseline "every regulation `+`" is right in 71%).
   A linear model has the same problem on this data (2-4 of 7 signs right), and simulations with a delay, an external input or a protein-level inhibition (all with Hill-type regulation) do not make the signs wrong, so it is not specific to the Hill function;
-  the reason is not known (see [experiments/SIGNS_REAL_DATA_REPORT.md](experiments/SIGNS_REAL_DATA_REPORT.md)). Use the `REGULATORY` sign of a real data set only after a check (`experiments/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`).
+  the reason is not known (see [evaluation/analysis/SIGNS_REAL_DATA_REPORT.md](evaluation/analysis/SIGNS_REAL_DATA_REPORT.md)). Use the `REGULATORY` sign of a real data set only after a check (`evaluation/analysis/scripts/eval_signs_real.py`, `input/IRMA/IRMA_signs.tsv`).
 
 ## Run GREMA
 
@@ -228,6 +228,8 @@ The other files in the output directory:
 - `tmp/`: intermediate files, such as the knowledge of each round (`*_ForStep*.txt`), the configuration file of the solver (`*_config`) and the simulated profiles (`calprofile*`). GREMA runs the solver inside this directory, so nothing is written next to the input file or into the current directory.
 
 ## Evaluation of GREMA
+
+All the analyses of GREMA (reports, scripts that make and score data, simulations, archived results) are collected in [evaluation/analysis](evaluation/analysis/README.md); the scoring of a result against a DREAM4-format gold standard is below.
 
 Install [scikit-learn](https://scikit-learn.org/stable/install.html) for the evaluation script
 

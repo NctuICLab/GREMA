@@ -3,7 +3,7 @@
 
 usage: check_data.py EXPRESSION.txt
 Prints the size of the data, three diagnostics and warnings. The thresholds are rules of thumb from the data sets of this repository (IRMA, SOS, the
-Hackett TF induction data, simulations; see experiments/METHODS_REPORT.md and experiments/PROTEIN_REGULATOR_REPORT.md), not tests with a guarantee.
+Hackett TF induction data, simulations; see evaluation/analysis/METHODS_REPORT.md and evaluation/analysis/PROTEIN_REGULATOR_REPORT.md), not tests with a guarantee.
   series, points, samples   samples = series x (points - 1) are the rows from which the rate of change is learnt
   mean |correlation|        mean absolute correlation between the genes (all series pooled): high = the genes move together (a shared driver)
   series similarity         mean correlation of the same gene between two different series: high = the series have the same time course (all

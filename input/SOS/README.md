@@ -34,7 +34,7 @@ python3 input/SOS/convert_sos_raw.py <dir with Exp1.txt..Exp4.txt> input/SOS
 mkdir -p output/SOS_4exp
 perl GREMA_main.pl -i input/SOS/SOS_4exp_timeseries_expression.txt -k input/SOS/SOS_all_unknown_knowledge.txt \
     -o output/SOS_4exp -g 500 -f 1 -t 4
-python3 experiments/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs \
+python3 evaluation/analysis/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs \
     "run=output/SOS_4exp/final_results.txt"
 ```
 

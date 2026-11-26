@@ -8,10 +8,10 @@ repository: code, data, scripts and the results of the finished runs. The user's
 Read in this order (about 15 minutes): this file, `input/IRMA/README.md` (what was tried on IRMA: HFODE vs S-system, simulation of the
 data-size effect, first time point, HFODE-based and GP augmentation; the tables there were made **before** PR #18, section 4 below has the
 updated ones), `input/SOS/README.md` (data, gold standard, paper numbers), then `README.md` (usage, options, output format).
-Run `experiments/scripts/eval_runs.py` on the archived results (section 2) to see that your setup reproduces the numbers in section 4,
+Run `evaluation/analysis/scripts/eval_runs.py` on the archived results (section 2) to see that your setup reproduces the numbers in section 4,
 then start with task T1.
 
-A prompt for the agent: *"Read experiments/HANDOFF.md in this repository and continue the analyses listed in section 5, starting with
+A prompt for the agent: *"Read evaluation/analysis/HANDOFF.md in this repository and continue the analyses listed in section 5, starting with
 T1. Follow the rules in section 3. Build the solvers, check that the archived results reproduce, then run the tasks and write the
 results back as a short report (tables with AUROC/AUPRC, TP/FP, what you ran, what you could not do)."*
 
@@ -26,7 +26,7 @@ improved: better fitness, more data (augmentation), more replicates. Accuracy = 
 
 Repository state: `master` contains PR #18 (a code review fixed ~30 bugs in the Perl driver and both C++ solvers; results
 produced **before** it, e.g. `-f 3`, are not comparable). Branch `handoff/analysis` adds: the fix that makes the solver use the
-perturbation sets (`-perturb`, `-noise`), the SOS data (`input/SOS/`), and `experiments/` (this file, scripts, archived results).
+perturbation sets (`-perturb`, `-noise`), the SOS data (`input/SOS/`), and `evaluation/analysis/` (this file, scripts, archived results).
 
 ## 2. Setup
 
@@ -36,10 +36,10 @@ cd EMA_HFODE && make && cd ..           # HFODE solver (the one that was evaluat
 cd EMA_SSYSTEM && make && cd ..         # S-system solver (only smoke-tested, see section 6)
 python3 -m pip install numpy scipy scikit-learn
 perl -V:useithreads                     # must print useithreads='define'
-tar xzf experiments/results/final_results.tgz -C /some/dir    # archived results, see experiments/results/README.md
+tar xzf evaluation/analysis/results/final_results.tgz -C /some/dir    # archived results, see evaluation/analysis/results/README.md
 ```
 
-Scripts (`experiments/scripts/`): `run_one.sh` (one GREMA run in an isolated directory), `eval_runs.py` (AUROC/AUPRC of
+Scripts (`evaluation/analysis/scripts/`): `run_one.sh` (one GREMA run in an isolated directory), `eval_runs.py` (AUROC/AUPRC of
 groups of runs; `--by` for seed-wise means), `iteration_table.py` (per-iteration TP/TN/FP/FN like the paper's Table 5), `convergence.py` (GA convergence from the progress files), `gp_auto.py`,
 `gp_v2.py` (GP augmentation: sample trajectories from the data), `sim_gen.py` (simulated data with the IRMA topology).
 
@@ -100,14 +100,14 @@ Define once: `R=$PWD; OUT=$HOME/grema_runs; mkdir -p $OUT` and use `bash`. A job
 **T1. SOS with 4 experiments (paper protocol), `-f 1` and `-f 3`, 5 runs each** (3 `-f 1` runs finished on the laptop; rerun all for a clean comparison).
 ```shell
 (for f in 1 3; do for r in 1 2 3 4 5; do echo "$OUT/sos4/f${f}_r$r $f"; done; done) | xargs -P 3 -L1 sh -c \
-  "$R/experiments/scripts/run_one.sh \"\$0\" $R/input/SOS/SOS_4exp_timeseries_expression.txt $R/input/SOS/SOS_all_unknown_knowledge.txt -g 500 -f \"\$1\" -t 4"
-python3 experiments/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs \
+  "$R/evaluation/analysis/scripts/run_one.sh \"\$0\" $R/input/SOS/SOS_4exp_timeseries_expression.txt $R/input/SOS/SOS_all_unknown_knowledge.txt -g 500 -f \"\$1\" -t 4"
+python3 evaluation/analysis/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs \
    "f1=$OUT/sos4/f1_r*/out/final_results.txt" "f3=$OUT/sos4/f3_r*/out/final_results.txt"      # 64 pairs, 8 true
-python3 experiments/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv \
+python3 evaluation/analysis/scripts/eval_runs.py --gold input/SOS/SOS_GoldStandard.tsv \
    "f1=$OUT/sos4/f1_r*/out/final_results.txt" "f3=$OUT/sos4/f3_r*/out/final_results.txt"      # 56 pairs, 7 true
 ```
 Report: AUROC/AUPRC, TP/FP vs the paper (TP 7, FP 14), signs of the true edges, and the per-iteration table
-(`python3 experiments/scripts/iteration_table.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs $OUT/sos4/f1_r*/out/final_results.txt`, to be compared with the paper's Table 5 given in its docstring).
+(`python3 evaluation/analysis/scripts/iteration_table.py --gold input/SOS/SOS_GoldStandard.tsv --self-pairs $OUT/sos4/f1_r*/out/final_results.txt`, to be compared with the paper's Table 5 given in its docstring).
 Optional: `-t 8` when the server has the cores; 2 distinct UV doses are in the data (5 and 20 J/m^2) - could also be tried separately.
 
 **T2. IRMA with the built-in perturbation sets** (`-perturb 9 -noise 0.05` and `0.1`, `-f 1` and `-f 3`, switch-on/off, 5 runs each = 40 runs, 6 finished).
@@ -115,8 +115,8 @@ The solver adds noise (standard deviation = noise x value, independent per time 
 copies of the data. Before the fix on this branch the sets were generated but ignored by the fitness.
 ```shell
 (for n in 0.05 0.1; do for f in 1 3; do for sw in on off; do for r in 1 2 3 4 5; do echo "$OUT/pt/n${n}_f${f}_${sw}_r$r $n $f $sw"; done; done; done; done) | xargs -P 4 -L1 sh -c \
-  "$R/experiments/scripts/run_one.sh \"\$0\" $R/input/IRMA/IRMA_switch_\$3_timeseries_expression.txt $R/input/IRMA/IRMA_no_prior_knowledge.txt -g 500 -f \"\$2\" -t 5 -perturb 9 -noise \"\$1\""
-python3 experiments/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv "pt0.05-f1-on=$OUT/pt/n0.05_f1_on_r*/out/final_results.txt" \
+  "$R/evaluation/analysis/scripts/run_one.sh \"\$0\" $R/input/IRMA/IRMA_switch_\$3_timeseries_expression.txt $R/input/IRMA/IRMA_no_prior_knowledge.txt -g 500 -f \"\$2\" -t 5 -perturb 9 -noise \"\$1\""
+python3 evaluation/analysis/scripts/eval_runs.py --gold input/IRMA/IRMA_GoldStandard.tsv "pt0.05-f1-on=$OUT/pt/n0.05_f1_on_r*/out/final_results.txt" \
    "pt0.1-f3-off=$OUT/pt/n0.1_f3_off_r*/out/final_results.txt"      # one LABEL=GLOB per setting
 ```
 Compare with the baseline (`irma_fixed`: `f1_*`, `f3_*`) and with GP (`irma_gp`). Hypothesis to test, not a claim: independent noise per time point adds no
