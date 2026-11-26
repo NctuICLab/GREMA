@@ -51,7 +51,7 @@ Python scripts need numpy, scipy and scikit-learn; `hsic_prefilter.py` also pyHS
 
 ## Run directories, downloaded data and logs (`GREMA_analysis_runs/`, outside the repository)
 
-On the machine where the analyses were run they are in `/mnt/10T-backup-mingju/GREMA_analysis_runs/` (1.7 GB; `external/`, `runs/`, `logs/`), next to the repository, so that `git clean` or `git add -A` cannot touch them.
+On the machine where the analyses were run they are in `/mnt/10T-backup-mingju/GREMA_analysis_runs/` (1.9 GB; `external/`, `runs/`, `logs/`), next to the repository, so that `git clean` or `git add -A` cannot touch them.
 The versioned part is `results/*.tgz` (the result files and the inputs needed to score them); the full run directories hold in addition the per-iteration results and the intermediate files.
 
 | Folder | Content | Report |
@@ -65,9 +65,9 @@ The versioned part is `results/*.tgz` (the result files and the inputs needed to
 | `runs/perm_control` | the experiment-permuted data sets and the runs on them | `METHODS_REPORT.md` section 1 |
 | `runs/prefilter`, `runs/prefilter_hsic`, `runs/hill_dict`, `runs/hill_dict_perm`, `runs/prefilter_runs`, `runs/prefilter_hsic_runs`, `runs/hill_dict_runs` | the LASSO, HSIC-Lasso and Hill-dictionary filters (scores and filtered knowledge files) and GREMA on the filtered knowledge files | `METHODS_REPORT.md` section 4 |
 | `runs/sim_signed`, `runs/sim_protein`, `runs/sim_irma_signs`, `runs/sim_irma_like` | the simulated signed networks and their variants, the protein regulators with a shared driver, the IRMA-topology and the IRMA-like simulations | `SIGN_SIMULATION_REPORT.md`, `PROTEIN_REGULATOR_REPORT.md`, `SIGNS_REAL_DATA_REPORT.md` |
+| `runs/home_runs` | the first runs, made in `~/grema_runs/` and moved here (243 MB): SOS with 4 experiments (`sos4`, `sos4_slot1`, `sos4_slot4`, `sos4_g1000`, `sos4_selfrep`), the SOS simulations (`sim_sos`, `sim_sos_p`), the IRMA baseline and the perturbation sets (`gen`, `gen500`, `pt`), Hackett (`hackett`), the job lists `t*_jobs.txt` and logs `t*.out`; `pack*` and `unpack*` are the staging folders of the archives in `results/` | `SOS_REPORT.md`, `IRMA_REPORT.md`, `HACKETT_REPORT.md`, `HANDOFF.md` |
 | `logs/` | the launcher logs (`*.out`) | |
 
-The first runs (SOS with 4 experiments, the IRMA baseline of `final_results.tgz`) were made in `~/grema_runs/` and are not in this folder.
 
 ### Backup at the end of a stage, and restoring on another machine
 
