@@ -112,3 +112,10 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
 `python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+
+## `sim_augment_results.tgz` (augmented data against real series, see `evaluation/analysis/AUGMENTATION_REPORT.md`)
+
+`sim_augment/seed<1-5>/` (`sim_aug_prep.py`: `s1.txt` .. `s4.txt`, `heldout.txt`, `know.txt`, `gold.tsv`, `signs.tsv`, `gp/in_<0-9>.txt` = the GP samples of `s1.txt`) and
+`runs/seed<k>_<s1|s2|s3|s4|p3|p9|gp0..gp9>/out/{G*.txt,final_results.txt}` (GREMA, `-f 1 -g 500`; `p3`, `p9` = `s1.txt` with `-perturb 3` / `-perturb 9 -noise 0.03`), `jobs.txt`.
+`python3 evaluation/analysis/scripts/eval_augment.py <unpacked>/sim_augment` prints the table of the report.
+
