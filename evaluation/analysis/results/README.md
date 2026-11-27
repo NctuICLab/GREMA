@@ -112,3 +112,10 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
 `python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+
+## `sim_nonhill_results.tgz` (regulation functions that are not Hill products, see `evaluation/analysis/NONHILL_FORM_REPORT.md`)
+
+`sim_nonhill/<hill|or|bell|delay|linear>_s<1|4>/seed<1-6>/` (`sim_nonhill.py`: `train.txt`, `heldout.txt`, `know.txt`, `gold.tsv`, `signs.tsv`, `summary.txt`), `runs/<form>_s<series>_seed<k>/out/{G1..G5.txt,final_results.txt}` (GREMA, no prior knowledge, `-f 1 -g 500`)
+and `dyn/<form>_s<series>/seed<k>/seed<m>/final_results.txt` (dynGENIE3, random forest, 5 seeds).
+`python3 evaluation/analysis/scripts/eval_nonhill.py <unpacked>/sim_nonhill --dyn <unpacked>/sim_nonhill/dyn` prints the tables of the report.
+
