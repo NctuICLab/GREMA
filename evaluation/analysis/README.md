@@ -17,6 +17,8 @@ evaluation/
 
 ## Reports
 
+**Start here: [GREMA_SCOPE.md](GREMA_SCOPE.md)**, a one-page statement of what GREMA is for, on which data it worked and what the evidence does not support.
+
 | Report | Question and answer in one line | Archive in `results/` |
 |---|---|---|
 | [HANDOFF.md](HANDOFF.md) | The hand-off file the analyses started from (tasks T1-T4, rules, first results). Historical. | `final_results.tgz`, `irma_gp_inputs.tgz` |

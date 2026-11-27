@@ -152,6 +152,8 @@ The S-system model (`-m s-system`) follows the same rules and also reads `GREMA_
 
 ## Is my data suitable? (`evaluation/analysis/scripts/check_data.py`)
 
+For what GREMA is for, on which data it worked and what the analyses did not support (signs on real data, prediction of new conditions), see [evaluation/analysis/GREMA_SCOPE.md](evaluation/analysis/GREMA_SCOPE.md).
+
 Whether a regulation can be inferred depends more on the data than on the method. Before a run:
 
 ```shell
