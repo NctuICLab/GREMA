@@ -28,6 +28,7 @@ evaluation/
 | [SIGN_SIMULATION_REPORT.md](SIGN_SIMULATION_REPORT.md) | Signs of GREMA on simulated signed networks: right (92-100%) with the model right and with seven mild misspecifications. | `sign_simulation_results.tgz` |
 | [PROTEIN_REGULATOR_REPORT.md](PROTEIN_REGULATOR_REPORT.md) | Promoter activity measured, protein regulators, a shared driver: collinearity lowers the detection; an opposite direction (cleavage) makes the signs wrong. | `sim_protein_results.tgz` |
 | [SIGNS_REAL_DATA_REPORT.md](SIGNS_REAL_DATA_REPORT.md) | On the real IRMA data only 25-50% of the signs are right; not caused by the amount of data, a delay, an input or a protein-level inhibition, and a linear model is as wrong; a check of the data before the run. | `irma_sign_factors_results.tgz` |
+| [SIGN_DIAGNOSIS_REPORT.md](SIGN_DIAGNOSIS_REPORT.md) | Why are the signs wrong on real IRMA? With the true structure told GREMA is right for only 43-50% of the signs, the sign is the same in every GA run and equals the sign of a linear regression (14/14), and it flips between switch-on and switch-off for 4 of 7 edges: the cause is the data, not the model. | `irma_sign_diagnosis_results.tgz` |
 
 ## Main findings (details and limits in the reports)
 
@@ -46,6 +47,7 @@ evaluation/
 | Simulations | `sim_gen.py` (IRMA topology), `sim_sos.py`, `sim_sos_p.py` (SOS with a hidden / measured LexA protein), `sim_signed_net.py` (random signed networks and variants), `sim_protein_net.py` (protein regulators, shared driver), `sim_irma_like.py` (IRMA-like with three switches) |
 | Other methods and filters | `dyngenie3_runner.py` (needs the dynGENIE3 code, see the report), `lasso_prefilter.py`, `hsic_prefilter.py`, `hill_dictionary.py`, `gp_auto.py`, `gp_v2.py` (Gaussian-process augmentation) |
 | Signs and checks of the data | `eval_signs.py`, `eval_sim_variants.py`, `eval_protein_sims.py`, `eval_irma_like.py`, `eval_signs_real.py`, `linear_signs_irma.py`, `check_data.py` |
+| Sign diagnosis | `irma_oracle_knowledge.py` (IRMA knowledge files with the true structure), `eval_irma_oracle.py`, `irma_sign_oracle_linear.py` (regression with the true structure; `--grema` compares it with GREMA) |
 
 Python scripts need numpy, scipy and scikit-learn; `hsic_prefilter.py` also pyHSICLasso; `dyngenie3_runner.py` needs the dynGENIE3 code and was run in a pixi environment (see `METHODS_REPORT.md`).
 
