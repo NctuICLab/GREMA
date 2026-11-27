@@ -112,3 +112,9 @@ The TFs ranked 11-20 (`hackett_prep.py ... --skip-tfs 10`): `inputs/` (`expressi
 `irma_topology_hfode/`: data simulated with HFODE on the IRMA topology (`data_r<1|5>_s<k>.txt`, `sim_gen.py <seed> <replicates> 0.05`), `signs.tsv` (8 signed edges), `runs/r<replicates>_s<k>/final_results.txt` (GREMA default settings);
 `irma_like/p<P>i<I>t<T>/seed<k>/` (data, knowledge, gold and signs of the IRMA-like simulation, `sim_irma_like.py <dir> <seed> --protein P --input I --posttrans T`) and `irma_like/runs/p<P>i<I>t<T>_s<k>/final_results.txt`.
 `python3 evaluation/analysis/scripts/eval_irma_like.py <the unpacked archive>/irma_like` prints the table of the report; `eval_signs_real.py <signs.tsv> label=<glob>` gives the signs of the first experiment; `linear_signs_irma.py` the linear model on the real data.
+
+## `irma_sign_diagnosis_results.tgz` (IRMA signs with the true structure told, see `evaluation/analysis/SIGN_DIAGNOSIS_REPORT.md`)
+
+`irma_sign_diagnosis/know/` (`irma_oracle_knowledge.py`: `know_unknown_signs.txt` and `know_loo_<TF>_<GENE>.txt`), `runs/<on|off>_<unknown_signs|loo_<TF>_<GENE>>_r<1-5>/out/final_results.txt` (GREMA, `-f 1 -g 500`), `jobs.txt`.
+`python3 evaluation/analysis/scripts/eval_irma_oracle.py <unpacked>/irma_sign_diagnosis/runs` prints the table of the report; `irma_sign_oracle_linear.py --grema <unpacked>/irma_sign_diagnosis/runs` the regression and the comparison with GREMA.
+
