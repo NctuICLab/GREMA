@@ -32,15 +32,28 @@ What it did on such data:
 | The fitted model predicts a new condition | **No.** Fitted on IRMA switch-on it predicts switch-off with a free-running skill of -4.7 against keeping the first value; it fits its own condition well (0.95) (`IRMA_PREDICTION_REPORT.md`, #31). |
 | GREMA detects better than model-free methods | **Not shown.** Better than dynGENIE3 on IRMA, equal or lower on the Hackett TF-induction data (the one data set where the comparison is valid: 0.67-0.72 against 0.72-0.79, and a lower AUPRC) (`METHODS_REPORT.md`). |
 | The input term helps on real data | **No evidence.** No improvement on IRMA (forecasts) and SOS (held-out experiment; the reversed input is as good); the tests have little power (`INPUT_TERM_REPORT.md`, #33). |
+| Augmented data (`-perturb`, GP samples) make up for too few series | **No.** In a simulation with a known truth, one more real series gives +0.10 AUROC, the best augmentation +0.04 (not clear) and a less stable prediction; `-perturb 9` (10 series) gives nothing (`AUGMENTATION_REPORT.md`, #37). |
 | The Hill form is what limits GREMA | **Not supported**: the data amount and the unmodelled protein stage are (`NONHILL_FORM_REPORT.md`, #34). |
+
+## When the data are not enough
+
+The augmentation of GREMA (`-perturb` noisy copies, Gaussian-process samples) and simulated series from a fitted model **do not replace real series**: they are made from the series that is given, so they only restate its uncertainty; the simulation from a fitted model made the results worse (`input/IRMA/README.md`).
+In a simulation with a known truth (`AUGMENTATION_REPORT.md`, #37) the AUROC was 0.76 with 1 real series, **0.86 with 2**, 0.89 with 3 and 0.90 with 4; one series augmented with `-perturb 3` reached 0.78, with `-perturb 9` (10 series) 0.76, with 10 GP samples 0.80, and the prediction of a held-out series was less stable.
+
+What adds information, in the order of what the evidence supports:
+1. **A new, independent series** (a different initial state or perturbation): the first extra series is worth +0.10 AUROC; the number of time points matters much less (simulation of `SIGN_SIMULATION_REPORT.md`: 5 points 0.87, 8 points 0.90, 20 points 0.91 with 4 series, against 0.82 with 1 series of 20 points). Two or three different series are worth more than many time points of one.
+2. **Prior knowledge**: a short candidate list (fewer regulator slots per gene gave fewer false regulations); a footprint or ChIP prior has a weak association with true regulations (odds ratio 2.7 in the hMSC analysis) and should be a soft prior, not a filter (`HMSC_FEASIBILITY_REPORT.md`, #30).
+3. **A structure with fewer parameters** (modules, shared parameters): not tested.
+
+If none of these is possible, GREMA should not be used for the regulation: use descriptive analyses (clustering of the time courses, the TFs that drive each stage from ATAC) and state the result as a hypothesis.
 
 ## How to get a result that can be trusted
 
 1. Run `check_data.py` before the run, and the experiment-permutation control (`permute_replicates.py`) when all series come from one stimulus.
-2. Plan the experiment for GREMA: **3-4 or more series that differ** (different perturbations, doses or start times, an input that changes within a series), **8-12 or more time points**, **replicates**, the **regulator's activity** measured (or the protein), a **small candidate list**, and **one condition held out** to test the prediction.
+2. Plan the experiment for GREMA: **3-4 or more series that differ** (different perturbations, doses or start times, an input that changes within a series; this matters more than the number of points), **8-12 or more time points**, **replicates**, the **regulator's activity** measured (or the protein), a **small candidate list**, and **one condition held out** to test the prediction.
 3. Report the detection (which regulators), not the signs, unless the signs are checked against a perturbation of the regulator or are the same in every series.
 4. Judge the result against a simple baseline (a correlation, a model without regulation) and against its own shuffled-data control.
 
 ## What is planned and not done
 
-A stability check of the signs across series (a sign that differs between conditions is not reported as a sign); the ATAC footprint (or another prior) as a soft prior in the choice of the regulator slots; a delay between an input and the mRNA; module-level networks for data with many genes and few points; a guide to the number of series and time points needed (a simulation). None of these has been tested.
+A stability check of the signs across series (a sign that differs between conditions is not reported as a sign); the ATAC footprint (or another prior) as a soft prior in the choice of the regulator slots; a delay between an input and the mRNA; module-level networks for data with many genes and few points; a guide to the number of series and time points needed for a given noise level and network size (a simulation; the first part is in `AUGMENTATION_REPORT.md`). None of these has been tested.
